@@ -41,7 +41,7 @@ export default function RecordPaymentModal({ isOpen, onClose, sale }: RecordPaym
     onClose();
   };
 
-  if (!sale) return null;
+  if (!isOpen || !sale) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
