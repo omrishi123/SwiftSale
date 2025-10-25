@@ -27,6 +27,7 @@ import CustomersView from '@/components/app/customers/CustomersView';
 import ExpensesView from '@/components/app/expenses/ExpensesView';
 import ReportsView from '@/components/app/reports/ReportsView';
 import SettingsView from '@/components/app/settings/SettingsView';
+import BillView from '@/components/app/sales/BillView';
 
 import NewSaleModal from '@/components/app/modals/NewSaleModal';
 import AddProductModal from '@/components/app/modals/AddProductModal';
@@ -39,7 +40,7 @@ import { ThemeToggle } from './ThemeToggle';
 import type { StockItem, Customer, Sale } from '@/lib/types';
 
 
-export type View = 'dashboard' | 'stock' | 'sales' | 'customers' | 'expenses' | 'reports' | 'settings';
+export type View = 'dashboard' | 'stock' | 'sales' | 'customers' | 'expenses' | 'reports' | 'settings' | 'bill';
 
 export type ModalType = 'newSale' | 'addProduct' | 'addExpense' | 'editProduct' | 'editCustomer' | 'recordPayment' | 'scanner';
 
@@ -48,24 +49,31 @@ export interface ModalState {
   data?: any;
 }
 
-
 export default function MainLayout() {
   const { isLoaded } = useAppData();
   const [activeView, setActiveView] = useState<View>('dashboard');
+  const [viewData, setViewData] = useState<any>(null);
   const [modalState, setModalState] = useState<ModalState>({ type: null, data: null });
 
   const openModal = (type: ModalType, data?: any) => setModalState({ type, data });
   const closeModal = () => setModalState({ type: null, data: null });
 
+  const changeView = (view: View, data?: any) => {
+    setActiveView(view);
+    setViewData(data);
+  };
+
   const viewConfig = useMemo(() => ({
     dashboard: { title: 'Dashboard', icon: LayoutDashboard, component: <DashboardView openModal={openModal} /> },
     stock: { title: 'Stock', icon: Package, component: <StockView openModal={openModal} /> },
-    sales: { title: 'Sales', icon: ReceiptText, component: <SalesView openModal={openModal} /> },
+    sales: { title: 'Sales', icon: ReceiptText, component: <SalesView openModal={openModal} changeView={changeView}/> },
     customers: { title: 'Customers', icon: Users, component: <CustomersView openModal={openModal} /> },
     expenses: { title: 'Expenses', icon: Wallet, component: <ExpensesView openModal={openModal} /> },
     reports: { title: 'Reports', icon: AreaChart, component: <ReportsView /> },
     settings: { title: 'Settings', icon: SettingsIcon, component: <SettingsView /> },
-  }), []);
+    bill: { title: 'Sale Invoice', icon: ReceiptText, component: <BillView sale={viewData as Sale} changeView={changeView} /> },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [viewData]);
 
   const navItems = useMemo(() => [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -86,6 +94,10 @@ export default function MainLayout() {
       </div>
     );
   }
+  
+  if (activeView === 'bill') {
+    return ActiveComponent;
+  }
 
   return (
     <SidebarProvider>
@@ -98,7 +110,7 @@ export default function MainLayout() {
             {navItems.map(item => (
               <SidebarMenuItem key={item.id}>
                 <SidebarMenuButton 
-                  onClick={() => setActiveView(item.id as View)} 
+                  onClick={() => changeView(item.id as View)} 
                   isActive={activeView === item.id}
                   tooltip={{ children: item.label, side:'right' }}
                   className="justify-start"
@@ -128,7 +140,7 @@ export default function MainLayout() {
       </SidebarInset>
       
       {/* Modals */}
-      <NewSaleModal isOpen={modalState.type === 'newSale'} onClose={closeModal} openModal={openModal} />
+      <NewSaleModal isOpen={modalState.type === 'newSale'} onClose={closeModal} openModal={openModal} changeView={changeView} />
       <AddProductModal isOpen={modalState.type === 'addProduct'} onClose={closeModal} openModal={openModal}/>
       <AddExpenseModal isOpen={modalState.type === 'addExpense'} onClose={closeModal} />
       <EditProductModal isOpen={modalState.type === 'editProduct'} onClose={closeModal} product={modalState.data as StockItem} />

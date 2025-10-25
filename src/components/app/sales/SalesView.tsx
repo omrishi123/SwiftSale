@@ -5,16 +5,22 @@ import { useAppData } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye } from 'lucide-react';
-import type { ModalType } from '../MainLayout';
+import { Printer } from 'lucide-react';
+import type { ModalType, View } from '../MainLayout';
+import { Sale } from '@/lib/types';
 
 interface SalesViewProps {
   openModal: (type: ModalType, data?: any) => void;
+  changeView: (view: View, data?: any) => void;
 }
 
 
-export default function SalesView({ openModal }: SalesViewProps) {
+export default function SalesView({ openModal, changeView }: SalesViewProps) {
   const { appData } = useAppData();
+
+  const handlePrint = (sale: Sale) => {
+    changeView('bill', sale);
+  };
 
   return (
     <Card>
@@ -47,8 +53,8 @@ export default function SalesView({ openModal }: SalesViewProps) {
                       ₹{sale.due.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon">
-                        <Eye className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" onClick={() => handlePrint(sale)}>
+                        <Printer className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>

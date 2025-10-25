@@ -10,16 +10,18 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { QrCode, Trash2, Plus, Minus } from 'lucide-react';
-import type { Customer, SaleItem, StockItem } from '@/lib/types';
+import type { Customer, SaleItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import type { View } from '../MainLayout';
 
 interface NewSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
   openModal: (type: 'scanner', data: any) => void;
+  changeView: (view: View, data?: any) => void;
 }
 
-export default function NewSaleModal({ isOpen, onClose, openModal }: NewSaleModalProps) {
+export default function NewSaleModal({ isOpen, onClose, openModal, changeView }: NewSaleModalProps) {
   const { appData, addSale, addCustomer } = useAppData();
   const { toast } = useToast();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
@@ -77,19 +79,35 @@ export default function NewSaleModal({ isOpen, onClose, openModal }: NewSaleModa
     setSelectedProductSku('');
     setQuantity(1);
   };
+  
+  const handleScanSku = (sku: string) => {
+    const product = appData.stock.find(p => p.sku === sku);
+    if (!product) {
+      toast({ variant: 'destructive', title: "Product not found", description: `SKU ${sku} not in inventory.` });
+      return;
+    }
+    updateItemQuantity(sku, 1);
+  };
 
   const updateItemQuantity = (sku: string, change: number) => {
     const item = saleItems.find(i => i.sku === sku);
     const product = appData.stock.find(p => p.sku === sku);
-    if (!item || !product) return;
+    if (!product) return; // Should not happen if item exists
 
-    const newQuantity = item.quantity + change;
+    const newQuantity = (item?.quantity || 0) + change;
+    
     if (newQuantity <= 0) {
-      setSaleItems(saleItems.filter(i => i.sku !== sku));
+      if (item) {
+        setSaleItems(saleItems.filter(i => i.sku !== sku));
+      }
     } else if (newQuantity > product.stock) {
       toast({ variant: 'destructive', title: "Not enough stock" });
     } else {
-      setSaleItems(saleItems.map(i => i.sku === sku ? { ...i, quantity: newQuantity } : i));
+      if(item) {
+        setSaleItems(saleItems.map(i => i.sku === sku ? { ...i, quantity: newQuantity } : i));
+      } else {
+        setSaleItems([...saleItems, { ...product, quantity: newQuantity }]);
+      }
     }
   };
 
@@ -142,8 +160,14 @@ export default function NewSaleModal({ isOpen, onClose, openModal }: NewSaleModa
       paymentMode,
       date: new Date().toISOString()
     });
-    toast({ title: "Sale Completed!", description: `Sale #${newSale.id} has been recorded.` });
-    onClose();
+    
+    if (newSale) {
+        toast({ title: "Sale Completed!", description: `Sale #${newSale.id} has been recorded.` });
+        onClose();
+        changeView('bill', newSale);
+    } else {
+         toast({ variant: 'destructive', title: 'Failed to complete sale.' });
+    }
   };
 
   return (
@@ -191,7 +215,7 @@ export default function NewSaleModal({ isOpen, onClose, openModal }: NewSaleModa
                 <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="w-20" />
                 <Button type="button" onClick={handleAddItem}>Add</Button>
               </div>
-               <Button type="button" variant="outline" className="w-full" onClick={() => openModal('scanner', { onScan: (sku: string) => updateItemQuantity(sku, 1) })}>
+               <Button type="button" variant="outline" className="w-full" onClick={() => openModal('scanner', { onScan: handleScanSku })}>
                 <QrCode className="mr-2 h-4 w-4" /> Scan Product
               </Button>
             </div>
