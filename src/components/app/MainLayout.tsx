@@ -49,6 +49,15 @@ export interface ModalState {
   data?: any;
 }
 
+const MemoizedDashboardView = React.memo(DashboardView);
+const MemoizedStockView = React.memo(StockView);
+const MemoizedSalesView = React.memo(SalesView);
+const MemoizedCustomersView = React.memo(CustomersView);
+const MemoizedExpensesView = React.memo(ExpensesView);
+const MemoizedReportsView = React.memo(ReportsView);
+const MemoizedSettingsView = React.memo(SettingsView);
+
+
 export default function MainLayout() {
   const { isLoaded } = useAppData();
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -64,13 +73,13 @@ export default function MainLayout() {
   };
 
   const viewConfig = useMemo(() => ({
-    dashboard: { title: 'Dashboard', icon: LayoutDashboard, component: <DashboardView openModal={openModal} /> },
-    stock: { title: 'Stock', icon: Package, component: <StockView openModal={openModal} /> },
-    sales: { title: 'Sales', icon: ReceiptText, component: <SalesView openModal={openModal} changeView={changeView}/> },
-    customers: { title: 'Customers', icon: Users, component: <CustomersView openModal={openModal} /> },
-    expenses: { title: 'Expenses', icon: Wallet, component: <ExpensesView openModal={openModal} /> },
-    reports: { title: 'Reports', icon: AreaChart, component: <ReportsView /> },
-    settings: { title: 'Settings', icon: SettingsIcon, component: <SettingsView /> },
+    dashboard: { title: 'Dashboard', icon: LayoutDashboard, component: <MemoizedDashboardView openModal={openModal} /> },
+    stock: { title: 'Stock', icon: Package, component: <MemoizedStockView openModal={openModal} /> },
+    sales: { title: 'Sales', icon: ReceiptText, component: <MemoizedSalesView openModal={openModal} changeView={changeView}/> },
+    customers: { title: 'Customers', icon: Users, component: <MemoizedCustomersView openModal={openModal} /> },
+    expenses: { title: 'Expenses', icon: Wallet, component: <MemoizedExpensesView openModal={openModal} /> },
+    reports: { title: 'Reports', icon: AreaChart, component: <MemoizedReportsView /> },
+    settings: { title: 'Settings', icon: SettingsIcon, component: <MemoizedSettingsView /> },
     bill: { title: 'Sale Invoice', icon: ReceiptText, component: <BillView sale={viewData as Sale} changeView={changeView} /> },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [viewData]);
