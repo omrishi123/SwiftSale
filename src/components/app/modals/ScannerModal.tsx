@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import useScript from '@/hooks/use-script';
 import { useToast } from '@/hooks/use-toast';
 
 declare global {
   interface Window {
-    Html5QrcodeScanner: any;
+    Html5Qrcode: any;
   }
 }
 
@@ -17,73 +18,110 @@ interface ScannerModalProps {
   onScan: (decodedText: string) => void;
 }
 
-const SCANNER_CONTAINER_ID = "html5-qrcode-scanner-container";
+const SCANNER_REGION_ID = "html5-qrcode-scanner-region";
 
 export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalProps) {
   const scriptStatus = useScript("https://unpkg.com/html5-qrcode/html5-qrcode.min.js");
-  const scannerRef = useRef<any>(null);
   const { toast } = useToast();
+  const [scannerStatus, setScannerStatus] = useState<'idle' | 'loading' | 'scanning' | 'permission-denied' | 'error'>('idle');
+  const scannerRef = useRef<any>(null);
 
   useEffect(() => {
-    if (isOpen && scriptStatus === 'ready' && window.Html5QrcodeScanner) {
-      
-      const onScanSuccess = (decodedText: string, decodedResult: any) => {
-        if (scannerRef.current) {
-          scannerRef.current.clear();
-        }
-        onScan(decodedText);
-        onClose();
-      };
-
-      const onScanFailure = (error: any) => {
-        // This is called frequently, so we don't toast here.
-        // console.warn(`Code scan error = ${error}`);
-      };
-
-      // Ensure the container is present
-      const container = document.getElementById(SCANNER_CONTAINER_ID);
-      if (container && !scannerRef.current) {
-        const scanner = new window.Html5QrcodeScanner(
-          SCANNER_CONTAINER_ID,
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            rememberLastUsedCamera: true,
-          },
-          false // verbose
-        );
-
-        scanner.render(onScanSuccess, onScanFailure);
-        scannerRef.current = scanner;
+    if (!isOpen) {
+      // If modal is closed, ensure scanner is stopped and resources are released.
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch((err: any) => {
+          console.error("Failed to stop scanner on close:", err);
+        });
       }
+      scannerRef.current = null;
+      setScannerStatus('idle'); // Reset status when closed
+      return;
     }
 
-    // Cleanup function
-    return () => {
-      if (scannerRef.current) {
-        // Use a try-catch block to handle potential errors during cleanup
-        try {
-           if (scannerRef.current.getState() === 2 /* SCANNING */) {
-            scannerRef.current.clear();
-           }
-        } catch (error) {
-          console.error("Failed to clear scanner on cleanup:", error);
+    if (isOpen && scriptStatus === 'ready' && scannerStatus === 'idle') {
+      const startScanner = async () => {
+        const container = document.getElementById(SCANNER_REGION_ID);
+        if (!container) {
+          console.error("Scanner container not found in DOM.");
+          setScannerStatus('error');
+          return;
         }
-        scannerRef.current = null;
+
+        // Only create a new scanner if one doesn't already exist.
+        if (!scannerRef.current) {
+          scannerRef.current = new window.Html5Qrcode(SCANNER_REGION_ID, false);
+        }
+        
+        const html5Qrcode = scannerRef.current;
+
+        try {
+          setScannerStatus('loading');
+          await html5Qrcode.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 },
+            },
+            (decodedText: string, decodedResult: any) => {
+              // success callback
+              onScan(decodedText);
+              onClose();
+            },
+            (errorMessage: string) => {
+              // ignore 'Code not found' errors
+            }
+          );
+          setScannerStatus('scanning');
+        } catch (err: any) {
+          console.error("Scanner start error:", err);
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            setScannerStatus('permission-denied');
+          } else {
+            setScannerStatus('error');
+          }
+        }
+      };
+      
+      startScanner();
+    }
+    
+    // Cleanup function for when the component unmounts or isOpen changes
+    return () => {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch((err: any) => {
+          console.error("Failed to stop scanner on cleanup:", err);
+        });
       }
     };
-  }, [isOpen, scriptStatus, onScan, onClose, toast]);
+  }, [isOpen, scriptStatus, onScan, onClose, scannerStatus]);
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={onClose}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Scan Barcode/QR Code</DialogTitle>
           <DialogDescription>Place a code inside the frame. The scanner will detect it automatically.</DialogDescription>
         </DialogHeader>
-        {scriptStatus === 'loading' && <p>Loading scanner...</p>}
-        {scriptStatus === 'error' && <p className="text-destructive">Failed to load scanner script.</p>}
-        <div id={SCANNER_CONTAINER_ID} className="w-full min-h-[300px]" />
+        <div id={SCANNER_REGION_ID} className="w-full min-h-[300px]" />
+        {scannerStatus === 'loading' && <p className="text-center text-muted-foreground">Requesting Camera Access...</p>}
+        {scannerStatus === 'permission-denied' && (
+          <Alert variant="destructive">
+            <AlertTitle>Camera Access Denied</AlertTitle>
+            <AlertDescription>
+              Please enable camera permissions in your browser settings to use the scanner.
+            </AlertDescription>
+          </Alert>
+        )}
+         {scannerStatus === 'error' && (
+          <Alert variant="destructive">
+            <AlertTitle>Scanner Error</AlertTitle>
+            <AlertDescription>
+              Failed to start the scanner. Please ensure your browser supports this feature and has access to a camera.
+            </AlertDescription>
+          </Alert>
+        )}
       </DialogContent>
     </Dialog>
   );
