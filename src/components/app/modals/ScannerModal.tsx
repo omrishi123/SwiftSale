@@ -9,6 +9,7 @@ import useScript from '@/hooks/use-script';
 declare global {
   interface Window {
     Html5Qrcode: any;
+    Html5QrcodeScanner: any;
   }
 }
 
@@ -24,107 +25,56 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
   const { toast } = useToast();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [message, setMessage] = useState("Initializing scanner...");
-  const [isScannerRunning, setIsScannerRunning] = useState(false);
 
-  const stopScanner = async () => {
-    if (scannerRef.current && isScannerRunning) {
-      try {
-        await scannerRef.current.stop();
-        setIsScannerRunning(false);
-      } catch (err) {
-        console.error("Failed to stop scanner", err);
-      }
-    }
-  };
-
-  const handleClose = async () => {
-    await stopScanner();
-    onClose();
-  };
-
+  // This effect will run when the modal is opened and the script is ready
   useEffect(() => {
     if (!isOpen || status !== 'ready') {
       return;
     }
 
-    if (!scannerRef.current) {
-      scannerRef.current = new window.Html5Qrcode("scanner-container");
-    }
+    const onScanSuccess = (decodedText: string, decodedResult: any) => {
+      onScan(decodedText);
+      onClose(); // Close the modal on successful scan
+    };
 
-    let isMounted = true;
+    const onScanFailure = (error: any) => {
+      // This is called frequently, so we don't do anything here to avoid spamming logs.
+    };
 
-    const startScanner = async () => {
-      try {
-        const cameras = await window.Html5Qrcode.getCameras();
-        if (!isMounted || !cameras || cameras.length === 0) {
-          setMessage("No cameras found.");
-          setHasPermission(false);
-          return;
-        }
-        setHasPermission(true);
+    // We instantiate the scanner here, which will also handle the permission request.
+    const html5QrcodeScanner = new window.Html5QrcodeScanner(
+      "scanner-container",
+      { fps: 10, qrbox: { width: 250, height: 250 }, supportedScanTypes: [0] }, // 0 for QR/Barcode
+      false // verbose
+    );
 
-        const onScanSuccess = (decodedText: string) => {
-          if (isMounted) {
-            onScan(decodedText);
-            handleClose();
-          }
-        };
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    scannerRef.current = html5QrcodeScanner;
 
-        const onScanFailure = (error: any) => {
-          // Continuous scan, so failure is expected. No need to log.
-        };
+    // The library itself will handle the permission prompt.
+    // We can't reliably track permission status from here,
+    // so we'll just let the user see the scanner UI or the permission prompt.
+    setMessage("Place a barcode inside the box.");
 
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-        const cameraId = cameras.find((c: any) => c.label.toLowerCase().includes('back'))?.id || cameras[0].id;
-        
-        await scannerRef.current.start(
-          { deviceId: { exact: cameraId } },
-          config,
-          onScanSuccess,
-          onScanFailure
-        );
-        setIsScannerRunning(true);
-        setMessage("Place a barcode inside the box.");
-
-      } catch (err) {
-        if (isMounted) {
-          console.error("Camera permission error:", err);
-          setMessage("Camera permission denied.");
-          setHasPermission(false);
-          toast({
-            variant: "destructive",
-            title: "Camera Access Denied",
-            description: "Please enable camera permissions in your browser settings.",
-          });
-        }
+    // Cleanup function when the component unmounts or the modal closes
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch((error: any) => {
+          console.error("Failed to clear scanner.", error);
+        });
+        scannerRef.current = null;
       }
     };
-
-    startScanner();
-
-    return () => {
-      isMounted = false;
-      stopScanner();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, status]);
+  }, [isOpen, status, onScan, onClose]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Scan Barcode/QR Code</DialogTitle>
           <DialogDescription>{message}</DialogDescription>
         </DialogHeader>
-        <div id="scanner-container" className="w-full aspect-square bg-muted rounded-md overflow-hidden" />
-        {hasPermission === false && (
-          <Alert variant="destructive">
-            <AlertTitle>Camera Access Required</AlertTitle>
-            <AlertDescription>
-              Please allow camera access in your browser settings to use this feature.
-            </AlertDescription>
-          </Alert>
-        )}
+        <div id="scanner-container" className="w-full aspect-video bg-muted rounded-md overflow-hidden" />
       </DialogContent>
     </Dialog>
   );
