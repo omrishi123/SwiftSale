@@ -13,6 +13,7 @@ import { QrCode, Trash2, Plus, Minus } from 'lucide-react';
 import type { Customer, SaleItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import type { View, ModalType } from '../MainLayout';
+import ScannerModal from './ScannerModal';
 
 interface NewSaleModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export default function NewSaleModal({ isOpen, onClose, openModal, changeView }:
   const [taxRate, setTaxRate] = useState(appData.settings.defaultTax || 0);
   const [amountPaid, setAmountPaid] = useState<number | string>('');
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'Card' | 'UPI'>('Cash');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -110,6 +112,8 @@ export default function NewSaleModal({ isOpen, onClose, openModal, changeView }:
     }
     // Add 1 item of the scanned product
     updateItemQuantity(sku, 1);
+    setIsScannerOpen(false); // Close scanner after scan
+    toast({ title: "Product Added", description: `${product.name} added to cart.` });
   }, [appData.stock, toast, updateItemQuantity]);
 
   const financialSummary = useMemo(() => {
@@ -172,109 +176,112 @@ export default function NewSaleModal({ isOpen, onClose, openModal, changeView }:
   };
 
   const handleOpenScanner = useCallback(() => {
-    openModal('scanner', { onScan: handleScanSku });
-  }, [openModal, handleScanSku]);
+    setIsScannerOpen(true);
+  }, []);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Create New Sale</DialogTitle>
-          <DialogDescription>Record a new transaction and generate a bill.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            {/* Customer Section */}
-            <div className="space-y-2">
-              <h4 className="font-semibold">Customer Details</h4>
-              <div className="flex items-center gap-4">
-                <Button type="button" size="sm" variant={isNewCustomer ? 'default' : 'outline'} onClick={() => setIsNewCustomer(true)}>New</Button>
-                <Button type="button" size="sm" variant={!isNewCustomer ? 'default' : 'outline'} onClick={() => setIsNewCustomer(false)}>Existing</Button>
-              </div>
-              {isNewCustomer ? (
-                <div className="space-y-2">
-                  <Input placeholder="Customer Name (Required)" value={newCustomerName} onChange={e => setNewCustomerName(e.target.value)} />
-                  <Input placeholder="Customer Phone" value={newCustomerPhone} onChange={e => setNewCustomerPhone(e.target.value)} />
-                  <Textarea placeholder="Customer Address" value={newCustomerAddress} onChange={e => setNewCustomerAddress(e.target.value)} />
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Create New Sale</DialogTitle>
+            <DialogDescription>Record a new transaction and generate a bill.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              {/* Customer Section */}
+              <div className="space-y-2">
+                <h4 className="font-semibold">Customer Details</h4>
+                <div className="flex items-center gap-4">
+                  <Button type="button" size="sm" variant={isNewCustomer ? 'default' : 'outline'} onClick={() => setIsNewCustomer(true)}>New</Button>
+                  <Button type="button" size="sm" variant={!isNewCustomer ? 'default' : 'outline'} onClick={() => setIsNewCustomer(false)}>Existing</Button>
                 </div>
-              ) : (
-                <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-                  <SelectTrigger><SelectValue placeholder="Select existing customer" /></SelectTrigger>
-                  <SelectContent>
-                    {appData.customers.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-            <Separator />
-            {/* Product Section */}
-            <div className="space-y-2">
-              <h4 className="font-semibold">Add Products</h4>
-              <div className="flex gap-2">
-                <Select value={selectedProductSku} onValueChange={setSelectedProductSku}>
-                  <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-                  <SelectContent>
-                    {availableProducts.map(p => <SelectItem key={p.sku} value={p.sku}>{p.name} (In Stock: {p.stock})</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="w-20" />
-                <Button type="button" onClick={handleAddItem}>Add</Button>
-              </div>
-               <Button type="button" variant="outline" className="w-full" onClick={handleOpenScanner}>
-                <QrCode className="mr-2 h-4 w-4" /> Scan Product
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="font-semibold">Sale Items</h4>
-            <div className="border rounded-md p-2 h-48 overflow-y-auto space-y-2 bg-muted/50">
-              {saleItems.length > 0 ? saleItems.map(item => (
-                <div key={item.sku} className="flex items-center justify-between text-sm bg-background p-2 rounded-md">
-                  <div>
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-muted-foreground">₹{item.salePrice.toFixed(2)} x {item.quantity}</p>
+                {isNewCustomer ? (
+                  <div className="space-y-2">
+                    <Input placeholder="Customer Name (Required)" value={newCustomerName} onChange={e => setNewCustomerName(e.target.value)} />
+                    <Input placeholder="Customer Phone" value={newCustomerPhone} onChange={e => setNewCustomerPhone(e.target.value)} />
+                    <Textarea placeholder="Customer Address" value={newCustomerAddress} onChange={e => setNewCustomerAddress(e.target.value)} />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">₹{(item.salePrice * item.quantity).toFixed(2)}</span>
-                    <div className="flex items-center border rounded-md">
-                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateItemQuantity(item.sku, -1)}><Minus className="h-3 w-3" /></Button>
-                      <span className="px-1 text-xs">{item.quantity}</span>
-                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateItemQuantity(item.sku, 1)}><Plus className="h-3 w-3" /></Button>
+                ) : (
+                  <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                    <SelectTrigger><SelectValue placeholder="Select existing customer" /></SelectTrigger>
+                    <SelectContent>
+                      {appData.customers.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <Separator />
+              {/* Product Section */}
+              <div className="space-y-2">
+                <h4 className="font-semibold">Add Products</h4>
+                <div className="flex gap-2">
+                  <Select value={selectedProductSku} onValueChange={setSelectedProductSku}>
+                    <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                    <SelectContent>
+                      {availableProducts.map(p => <SelectItem key={p.sku} value={p.sku}>{p.name} (In Stock: {p.stock})</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="w-20" />
+                  <Button type="button" onClick={handleAddItem}>Add</Button>
+                </div>
+                 <Button type="button" variant="outline" className="w-full" onClick={handleOpenScanner}>
+                  <QrCode className="mr-2 h-4 w-4" /> Scan Product
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="font-semibold">Sale Items</h4>
+              <div className="border rounded-md p-2 h-48 overflow-y-auto space-y-2 bg-muted/50">
+                {saleItems.length > 0 ? saleItems.map(item => (
+                  <div key={item.sku} className="flex items-center justify-between text-sm bg-background p-2 rounded-md">
+                    <div>
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-muted-foreground">₹{item.salePrice.toFixed(2)} x {item.quantity}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">₹{(item.salePrice * item.quantity).toFixed(2)}</span>
+                      <div className="flex items-center border rounded-md">
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateItemQuantity(item.sku, -1)}><Minus className="h-3 w-3" /></Button>
+                        <span className="px-1 text-xs">{item.quantity}</span>
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateItemQuantity(item.sku, 1)}><Plus className="h-3 w-3" /></Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )) : <p className="text-center text-muted-foreground pt-16">No items added.</p>}
-            </div>
-
-            <div className="space-y-1 text-sm border rounded-md p-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>₹{financialSummary.subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between items-center"><span className="text-muted-foreground">Discount (₹)</span><Input type="number" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} className="h-7 w-24 text-right" /></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Taxable Amt</span><span>₹{financialSummary.taxable.toFixed(2)}</span></div>
-              <div className="flex justify-between items-center"><span className="text-muted-foreground">GST (%)</span><Input type="number" value={taxRate} onChange={e => setTaxRate(parseFloat(e.target.value) || 0)} className="h-7 w-24 text-right" /></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">GST Amount</span><span>₹{financialSummary.gstAmount.toFixed(2)}</span></div>
-              <Separator className="my-1"/>
-              <div className="flex justify-between font-bold text-base"><span >Grand Total</span><span>₹{financialSummary.grandTotal.toFixed(2)}</span></div>
-              <div className="flex justify-between items-center"><span className="text-muted-foreground">Paid Amount</span><Input type="number" placeholder={financialSummary.grandTotal.toFixed(2)} value={amountPaid} onChange={e => setAmountPaid(e.target.value === '' ? '' : parseFloat(e.target.value))} className="h-7 w-24 text-right" /></div>
-              <div className="flex justify-between items-center"><span className="text-muted-foreground">Payment Mode</span>
-                <Select value={paymentMode} onValueChange={(v: 'Cash'|'Card'|'UPI') => setPaymentMode(v)}>
-                    <SelectTrigger className="h-7 w-24"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Cash">Cash</SelectItem>
-                        <SelectItem value="Card">Card</SelectItem>
-                        <SelectItem value="UPI">UPI</SelectItem>
-                    </SelectContent>
-                </Select>
+                )) : <p className="text-center text-muted-foreground pt-16">No items added.</p>}
               </div>
-              <div className={`flex justify-between font-bold text-base ${financialSummary.due > 0 ? 'text-destructive' : ''}`}><span>Amount Due</span><span>₹{financialSummary.due.toFixed(2)}</span></div>
+
+              <div className="space-y-1 text-sm border rounded-md p-2">
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>₹{financialSummary.subtotal.toFixed(2)}</span></div>
+                <div className="flex justify-between items-center"><span className="text-muted-foreground">Discount (₹)</span><Input type="number" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} className="h-7 w-24 text-right" /></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Taxable Amt</span><span>₹{financialSummary.taxable.toFixed(2)}</span></div>
+                <div className="flex justify-between items-center"><span className="text-muted-foreground">GST (%)</span><Input type="number" value={taxRate} onChange={e => setTaxRate(parseFloat(e.target.value) || 0)} className="h-7 w-24 text-right" /></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">GST Amount</span><span>₹{financialSummary.gstAmount.toFixed(2)}</span></div>
+                <Separator className="my-1"/>
+                <div className="flex justify-between font-bold text-base"><span >Grand Total</span><span>₹{financialSummary.grandTotal.toFixed(2)}</span></div>
+                <div className="flex justify-between items-center"><span className="text-muted-foreground">Paid Amount</span><Input type="number" placeholder={financialSummary.grandTotal.toFixed(2)} value={amountPaid} onChange={e => setAmountPaid(e.target.value === '' ? '' : parseFloat(e.target.value))} className="h-7 w-24 text-right" /></div>
+                <div className="flex justify-between items-center"><span className="text-muted-foreground">Payment Mode</span>
+                  <Select value={paymentMode} onValueChange={(v: 'Cash'|'Card'|'UPI') => setPaymentMode(v)}>
+                      <SelectTrigger className="h-7 w-24"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="Cash">Cash</SelectItem>
+                          <SelectItem value="Card">Card</SelectItem>
+                          <SelectItem value="UPI">UPI</SelectItem>
+                      </SelectContent>
+                  </Select>
+                </div>
+                <div className={`flex justify-between font-bold text-base ${financialSummary.due > 0 ? 'text-destructive' : ''}`}><span>Amount Due</span><span>₹{financialSummary.due.toFixed(2)}</span></div>
+              </div>
             </div>
-          </div>
-        </form>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="new-sale-form" onClick={handleSubmit}>Complete Sale</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </form>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" form="new-sale-form" onClick={handleSubmit}>Complete Sale</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <ScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScan={handleScanSku} />
+    </>
   );
 }

@@ -35,14 +35,13 @@ import AddExpenseModal from '@/components/app/modals/AddExpenseModal';
 import EditProductModal from '@/components/app/modals/EditProductModal';
 import EditCustomerModal from '@/components/app/modals/EditCustomerModal';
 import RecordPaymentModal from '@/components/app/modals/RecordPaymentModal';
-import ScannerModal from '@/components/app/modals/ScannerModal';
 import { ThemeToggle } from './ThemeToggle';
 import type { StockItem, Customer, Sale } from '@/lib/types';
 
 
 export type View = 'dashboard' | 'stock' | 'sales' | 'customers' | 'expenses' | 'reports' | 'settings' | 'bill';
 
-export type ModalType = 'newSale' | 'addProduct' | 'addExpense' | 'editProduct' | 'editCustomer' | 'recordPayment' | 'scanner';
+export type ModalType = 'newSale' | 'addProduct' | 'addExpense' | 'editProduct' | 'editCustomer' | 'recordPayment';
 
 export interface ModalState {
   type: ModalType | null;
@@ -94,7 +93,7 @@ export default function MainLayout() {
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ], []);
 
-  const ActiveComponent = viewConfig[activeView].component;
+  const ActiveComponent = useMemo(() => viewConfig[activeView].component, [activeView, viewConfig]);
 
   if (!isLoaded) {
     return (
@@ -155,8 +154,6 @@ export default function MainLayout() {
       <EditProductModal isOpen={modalState.type === 'editProduct'} onClose={closeModal} product={modalState.data as StockItem} />
       <EditCustomerModal isOpen={modalState.type === 'editCustomer'} onClose={closeModal} customer={modalState.data as Customer} />
       <RecordPaymentModal isOpen={modalState.type === 'recordPayment'} onClose={closeModal} sale={modalState.data as Sale} />
-      <ScannerModal isOpen={modalState.type === 'scanner'} onClose={closeModal} onScan={modalState.data?.onScan} />
-
     </SidebarProvider>
   );
 }
