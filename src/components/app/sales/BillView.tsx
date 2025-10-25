@@ -33,41 +33,44 @@ export default function BillView({ sale, changeView }: BillViewProps) {
     if (input) {
       document.body.classList.add('printing-bill');
 
-      html2canvas(input, { 
-        scale: 2, // Higher scale for better quality
-        useCORS: true, 
-        width: input.clientWidth,
-        height: input.clientHeight,
-        windowWidth: input.scrollWidth,
-        windowHeight: input.scrollHeight
-      }).then(canvas => {
-        document.body.classList.remove('printing-bill');
-        
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        const canvasAspectRatio = canvas.width / canvas.height;
-        const pageAspectRatio = pdfWidth / pdfHeight;
+      // Use a timeout to allow the browser to apply styles before capturing
+      setTimeout(() => {
+        html2canvas(input, {
+          scale: 3, // Higher scale for better quality
+          useCORS: true,
+          logging: false,
+          width: input.offsetWidth,
+          height: input.offsetHeight,
+        }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const canvasAspectRatio = canvasWidth / canvasHeight;
 
-        let imgWidth = pdfWidth;
-        let imgHeight = pdfWidth / canvasAspectRatio;
+            let imgWidth = pdfWidth;
+            let imgHeight = pdfWidth / canvasAspectRatio;
 
-        if (imgHeight > pdfHeight) {
-          imgHeight = pdfHeight;
-          imgWidth = pdfHeight * canvasAspectRatio;
-        }
-        
-        const xOffset = (pdfWidth - imgWidth) / 2;
-        const yOffset = (pdfHeight - imgHeight) / 2;
+            // If the image is taller than the page, scale it down
+            if (imgHeight > pdfHeight) {
+                imgHeight = pdfHeight;
+                imgWidth = pdfHeight * canvasAspectRatio;
+            }
 
-        pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
-        pdf.save(`invoice-${sale.id}.pdf`);
-      }).catch(err => {
-        document.body.classList.remove('printing-bill');
-        console.error("Error generating PDF:", err);
-      });
+            const xOffset = (pdfWidth - imgWidth) / 2;
+            const yOffset = 0; // Align to top
+
+            pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
+            pdf.save(`invoice-${sale.id}.pdf`);
+        }).catch(err => {
+            console.error("Error generating PDF:", err);
+        }).finally(() => {
+            document.body.classList.remove('printing-bill');
+        });
+      }, 100);
     }
   };
 
