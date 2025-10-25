@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import useScript from '@/hooks/use-script';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
+import useScript from '@/hooks/use-script';
 
 declare global {
   interface Window {
@@ -19,64 +20,63 @@ interface ScannerModalProps {
 
 export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalProps) {
   const status = useScript("https://unpkg.com/html5-qrcode/html5-qrcode.min.js");
-  const [scanner, setScanner] = useState<any>(null);
-  const [message, setMessage] = useState("Initializing scanner...");
+  const scannerRef = useRef<any>(null);
+  const { toast } = useToast();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [message, setMessage] = useState("Initializing scanner...");
 
   useEffect(() => {
-    if (status === 'ready' && isOpen && !scanner) {
-      if (window.Html5Qrcode) {
-        const qrScanner = new window.Html5Qrcode("scanner-container");
-        setScanner(qrScanner);
-      }
+    if (status !== 'ready' || !isOpen) {
+      return;
     }
-  }, [status, isOpen, scanner]);
 
-  useEffect(() => {
+    if (!scannerRef.current) {
+        scannerRef.current = new window.Html5Qrcode("scanner-container");
+    }
+    const scanner = scannerRef.current;
     let isMounted = true;
-    if (scanner && isOpen) {
-      setMessage("Requesting camera access...");
-      
-      const onScanSuccess = (decodedText: string, decodedResult: any) => {
-        onScan(decodedText);
-        handleClose();
-      };
-      
-      const onScanFailure = (error: any) => {
-        // This can be noisy, so we'll just log it for debugging.
-        // console.warn(`QR code scan failed: ${error}`);
-      };
 
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-      
-      window.Html5Qrcode.getCameras().then((cameras: any[]) => {
-        if (!isMounted) return;
-        if (cameras && cameras.length) {
-          setHasPermission(true);
-          setMessage("Starting camera...");
-          const cameraId = cameras.find((c: any) => c.label.toLowerCase().includes('back'))?.id || cameras[0].id;
-          scanner.start({ deviceId: { exact: cameraId } }, config, onScanSuccess, onScanFailure)
-            .catch((err: any) => {
-              if (isMounted) {
-                setMessage("Error starting camera. Please grant permissions.");
+    const onScanSuccess = (decodedText: string) => {
+        if(isMounted) {
+            onScan(decodedText);
+            handleClose();
+        }
+    };
+    
+    const onScanFailure = (error: any) => {
+        // This is expected to be called frequently, so we don't log it.
+    };
+
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    const startScanner = async () => {
+        try {
+            await navigator.mediaDevices.getUserMedia({ video: true });
+            setHasPermission(true);
+            setMessage("Starting camera...");
+            const cameras = await window.Html5Qrcode.getCameras();
+            if (isMounted && cameras && cameras.length) {
+                const cameraId = cameras.find((c: any) => c.label.toLowerCase().includes('back'))?.id || cameras[0].id;
+                await scanner.start({ deviceId: { exact: cameraId } }, config, onScanSuccess, onScanFailure);
+            } else if (isMounted) {
+                setMessage("No cameras found.");
                 setHasPermission(false);
-                console.error(err);
-              }
-            });
-        } else {
-          if (isMounted) {
-            setMessage("No cameras found.");
-            setHasPermission(false);
-          }
+            }
+        } catch (err) {
+            if (isMounted) {
+                setMessage("Camera permission denied.");
+                setHasPermission(false);
+                console.error("Camera permission error:", err);
+                toast({
+                    variant: "destructive",
+                    title: "Camera Access Denied",
+                    description: "Please enable camera permissions in your browser settings.",
+                });
+            }
         }
-      }).catch((err: any) => {
-        if (isMounted) {
-          setMessage("Could not get camera permissions.");
-          setHasPermission(false);
-          console.error(err);
-        }
-      });
-    }
+    };
+
+    startScanner();
 
     return () => {
       isMounted = false;
@@ -85,19 +85,16 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanner, isOpen, onScan]);
+  }, [isOpen, status, onScan]);
 
   const handleClose = () => {
-    if (scanner && scanner.isScanning) {
-      scanner.stop().then(() => {
-        onClose();
-      }).catch((err: any) => {
-        console.error("Failed to stop scanner cleanly", err);
-        onClose();
-      });
-    } else {
-      onClose();
-    }
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop()
+            .then(() => onClose())
+            .catch(() => onClose());
+      } else {
+          onClose();
+      }
   };
 
   return (
