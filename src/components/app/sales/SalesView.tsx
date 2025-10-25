@@ -18,7 +18,7 @@ interface SalesViewProps {
 export default function SalesView({ openModal, changeView }: SalesViewProps) {
   const { appData } = useAppData();
 
-  const handlePrint = (sale: Sale) => {
+  const handleViewBill = (sale: Sale) => {
     changeView('bill', sale);
   };
 
@@ -53,7 +53,7 @@ export default function SalesView({ openModal, changeView }: SalesViewProps) {
                       ₹{sale.due.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handlePrint(sale)}>
+                      <Button variant="ghost" size="icon" onClick={() => handleViewBill(sale)}>
                         <Printer className="h-4 w-4" />
                       </Button>
                     </TableCell>

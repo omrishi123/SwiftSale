@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect } from 'react';
-import type { Sale, Customer } from '@/lib/types';
+import React from 'react';
+import type { Sale } from '@/lib/types';
 import { useAppData } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,17 +20,10 @@ export default function BillView({ sale, changeView }: BillViewProps) {
   const customer = appData.customers.find(c => c.id === sale.customerId);
   const settings = appData.settings;
 
-  useEffect(() => {
+  const handlePrint = () => {
     document.body.classList.add('printing-bill');
     window.print();
-    return () => {
-      document.body.classList.remove('printing-bill');
-    };
-  }, []);
-
-
-  const handlePrint = () => {
-    window.print();
+    document.body.classList.remove('printing-bill');
   };
 
   const handleBack = () => {
