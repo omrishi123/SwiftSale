@@ -31,36 +31,38 @@ export default function BillView({ sale, changeView }: BillViewProps) {
   const handleDownload = () => {
     const input = document.getElementById('bill-content');
     if (input) {
-      // Temporarily apply print styles for PDF generation
       document.body.classList.add('printing-bill');
 
-      html2canvas(input, {
-        scale: 2, // Higher scale for better quality
-        useCORS: true 
+      html2canvas(input, { 
+        scale: 2,
+        useCORS: true, 
+        width: input.clientWidth,
+        height: input.clientHeight,
+        windowWidth: input.scrollWidth,
+        windowHeight: input.scrollHeight
       }).then(canvas => {
-        // Remove print styles right after canvas is created
         document.body.classList.remove('printing-bill');
         
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        const ratio = canvasWidth / canvasHeight;
-        const width = pdfWidth;
-        const height = width / ratio;
         
-        if (height <= pdfHeight) {
-            pdf.addImage(imgData, 'PNG', 0, 0, width, height);
-        } else {
-            console.error("The bill content is too long to fit on a single PDF page.");
-            pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+        const ratio = canvas.width / canvas.height;
+        let imgWidth = pdfWidth;
+        let imgHeight = pdfWidth / ratio;
+
+        if (imgHeight > pdfHeight) {
+            imgHeight = pdfHeight;
+            imgWidth = pdfHeight * ratio;
         }
 
+        const x = (pdfWidth - imgWidth) / 2;
+        const y = (pdfHeight - imgHeight) / 2;
+
+        pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
         pdf.save(`invoice-${sale.id}.pdf`);
       }).catch(err => {
-        // Ensure styles are removed even if there's an error
         document.body.classList.remove('printing-bill');
         console.error("Error generating PDF:", err);
       });
