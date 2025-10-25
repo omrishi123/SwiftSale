@@ -6,8 +6,10 @@ import { useAppData } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Printer, Download } from 'lucide-react';
 import type { View } from '../MainLayout';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 
 interface BillViewProps {
@@ -25,6 +27,37 @@ export default function BillView({ sale, changeView }: BillViewProps) {
     window.print();
     document.body.classList.remove('printing-bill');
   };
+  
+  const handleDownload = () => {
+    const input = document.getElementById('bill-content');
+    if (input) {
+      html2canvas(input, {
+        scale: 2, // Higher scale for better quality
+        useCORS: true 
+      }).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / canvasHeight;
+        const width = pdfWidth;
+        const height = width / ratio;
+        
+        let position = 0;
+        
+        if (height <= pdfHeight) {
+            pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+        } else {
+            console.error("The bill content is too long to fit on a single PDF page.");
+            // Or handle multi-page PDF generation
+        }
+
+        pdf.save(`invoice-${sale.id}.pdf`);
+      });
+    }
+  };
 
   const handleBack = () => {
     changeView('sales');
@@ -34,7 +67,10 @@ export default function BillView({ sale, changeView }: BillViewProps) {
     <>
       <div className="flex justify-between items-center p-4 sm:p-8 print:hidden">
         <Button variant="outline" onClick={handleBack}><ArrowLeft className="mr-2" /> Back to Sales</Button>
-        <Button onClick={handlePrint}><Printer className="mr-2" /> Print Bill</Button>
+        <div className="flex gap-2">
+          <Button onClick={handleDownload}><Download className="mr-2" /> Download</Button>
+          <Button onClick={handlePrint}><Printer className="mr-2" /> Print Bill</Button>
+        </div>
       </div>
       <div className="bill-container-wrapper">
         <div className="bill-container" id="bill-content">
