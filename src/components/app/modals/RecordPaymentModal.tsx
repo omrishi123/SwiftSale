@@ -48,9 +48,11 @@ export default function RecordPaymentModal({ isOpen, onClose, sale }: RecordPaym
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Record Due Payment</DialogTitle>
-          <DialogDescription>
-            Record a payment for Sale ID <strong>#{sale.id}</strong> with a current due of <strong className="text-destructive">₹{sale.due.toFixed(2)}</strong>.
-          </DialogDescription>
+          {sale && (
+            <DialogDescription>
+              Record a payment for Sale ID <strong>#{sale.id}</strong> with a current due of <strong className="text-destructive">₹{sale.due.toFixed(2)}</strong>.
+            </DialogDescription>
+          )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
