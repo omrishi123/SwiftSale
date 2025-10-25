@@ -25,65 +25,72 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
   const { toast } = useToast();
 
   useEffect(() => {
-    if (isOpen && scriptStatus === 'ready' && window.Html5QrcodeScanner) {
-        
-        if (scannerRef.current) {
-            // Already initialized
-            return;
-        }
+    if (!isOpen || scriptStatus !== 'ready' || !window.Html5QrcodeScanner) {
+      return;
+    }
 
-        const onScanSuccess = (decodedText: string, decodedResult: any) => {
-            onScan(decodedText);
-            onClose(); 
-        };
+    // Ensure the container element exists before initializing
+    const scannerContainer = document.getElementById(SCANNER_CONTAINER_ID);
+    if (!scannerContainer) {
+      // The container is not in the DOM yet, wait for the next render.
+      return;
+    }
+    
+    // Prevent re-initialization
+    if (scannerRef.current) {
+      return;
+    }
 
-        const onScanFailure = (error: any) => {
-             // This can be noisy, so only log if needed for debugging.
-             // console.warn(`Code scan error = ${error}`);
-        };
-        
-        const config = {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            supportedScanTypes: [0], // 0 represents all supported types (QR and Barcodes)
-            rememberLastUsedCamera: true,
-        };
-        
-        try {
-            const scanner = new window.Html5QrcodeScanner(
-                SCANNER_CONTAINER_ID,
-                config,
-                /* verbose= */ false
-            );
-            scanner.render(onScanSuccess, onScanFailure);
-            scannerRef.current = scanner;
-        } catch (err: any) {
-            console.error("Scanner Initialization Error:", err);
-            toast({
-                variant: "destructive",
-                title: "Scanner Error",
-                description: err.message || "Failed to initialize the scanner.",
-            });
-        }
+    const onScanSuccess = (decodedText: string, decodedResult: any) => {
+      onScan(decodedText);
+      onClose(); 
+    };
+
+    const onScanFailure = (error: any) => {
+      // This can be noisy, so it's commented out unless needed for debugging.
+      // console.warn(`Code scan error = ${error}`);
+    };
+    
+    const config = {
+      fps: 10,
+      qrbox: { width: 250, height: 250 },
+      supportedScanTypes: [0], // 0 represents all supported types
+      rememberLastUsedCamera: true,
+    };
+    
+    try {
+      const scanner = new window.Html5QrcodeScanner(
+        SCANNER_CONTAINER_ID,
+        config,
+        false // verbose
+      );
+      scanner.render(onScanSuccess, onScanFailure);
+      scannerRef.current = scanner;
+    } catch (err: any) {
+      console.error("Scanner Initialization Error:", err);
+      toast({
+        variant: "destructive",
+        title: "Scanner Error",
+        description: err.message || "Failed to initialize the scanner.",
+      });
     }
 
     // Cleanup function
     return () => {
-        if (scannerRef.current) {
-            try {
-                // Check if scanner is running before trying to clear it
-                if (scannerRef.current.getState() === 2 /* SCANNING */) {
-                    scannerRef.current.clear();
-                }
-            } catch (error) {
-                console.error("Failed to clear scanner:", error);
-            }
-            scannerRef.current = null;
+      if (scannerRef.current) {
+        try {
+          // Check if scanner is running before trying to clear it
+          if (scannerRef.current.getState() === 2 /* SCANNING */) {
+            scannerRef.current.clear().catch((error: any) => {
+              console.error("Failed to clear scanner on cleanup:", error);
+            });
+          }
+        } catch (error) {
+          console.error("Error during scanner cleanup:", error);
         }
+        scannerRef.current = null;
+      }
     };
-  // The dependencies must be stable across renders.
-  // Functions defined outside the component (like onScan, onClose) can cause issues if not memoized.
-  // By limiting dependencies to only what's necessary to trigger the effect (isOpen, scriptStatus), we stabilize it.
   }, [isOpen, scriptStatus, onScan, onClose, toast]);
   
   return (
@@ -95,7 +102,6 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
         </DialogHeader>
         {scriptStatus === 'loading' && <p>Loading scanner...</p>}
         {scriptStatus === 'error' && <p className="text-destructive">Failed to load scanner script.</p>}
-        {/* This div is the target for the scanner library */}
         <div id={SCANNER_CONTAINER_ID} className="w-full" />
       </DialogContent>
     </Dialog>
