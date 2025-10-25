@@ -5,11 +5,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import useScript from '@/hooks/use-script';
+import { CameraOff } from 'lucide-react';
 
 declare global {
   interface Window {
     Html5Qrcode: any;
-    Html5QrcodeScanner: any;
   }
 }
 
@@ -20,52 +20,77 @@ interface ScannerModalProps {
 }
 
 export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalProps) {
-  const status = useScript("https://unpkg.com/html5-qrcode/html5-qrcode.min.js");
+  const scriptStatus = useScript("https://unpkg.com/html5-qrcode/html5-qrcode.min.js");
   const scannerRef = useRef<any>(null);
   const { toast } = useToast();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [message, setMessage] = useState("Initializing scanner...");
+  const [message, setMessage] = useState("Requesting camera permission...");
 
-  // This effect will run when the modal is opened and the script is ready
   useEffect(() => {
-    if (!isOpen || status !== 'ready') {
+    if (!isOpen) {
+      // Stop scanner and stream when modal is closed
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch((err: any) => console.error("Error stopping the scanner: ", err));
+      }
       return;
     }
 
-    const onScanSuccess = (decodedText: string, decodedResult: any) => {
-      onScan(decodedText);
-      onClose(); // Close the modal on successful scan
-    };
+    if (scriptStatus !== 'ready') {
+      setMessage("Scanner library is loading...");
+      return;
+    }
 
-    const onScanFailure = (error: any) => {
-      // This is called frequently, so we don't do anything here to avoid spamming logs.
-    };
+    if (!scannerRef.current) {
+      scannerRef.current = new window.Html5Qrcode("scanner-container", false);
+    }
+    const html5Qrcode = scannerRef.current;
+    
+    const startScanner = async () => {
+      try {
+        const cameras = await window.Html5Qrcode.getCameras();
+        setHasPermission(true);
+        if (cameras && cameras.length) {
+          setMessage("Place a barcode inside the box.");
+          
+          const onScanSuccess = (decodedText: string, decodedResult: any) => {
+            if (html5Qrcode.isScanning) {
+              html5Qrcode.stop();
+            }
+            onScan(decodedText);
+            onClose();
+          };
 
-    // We instantiate the scanner here, which will also handle the permission request.
-    const html5QrcodeScanner = new window.Html5QrcodeScanner(
-      "scanner-container",
-      { fps: 10, qrbox: { width: 250, height: 250 }, supportedScanTypes: [0] }, // 0 for QR/Barcode
-      false // verbose
-    );
-
-    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-    scannerRef.current = html5QrcodeScanner;
-
-    // The library itself will handle the permission prompt.
-    // We can't reliably track permission status from here,
-    // so we'll just let the user see the scanner UI or the permission prompt.
-    setMessage("Place a barcode inside the box.");
-
-    // Cleanup function when the component unmounts or the modal closes
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch((error: any) => {
-          console.error("Failed to clear scanner.", error);
-        });
-        scannerRef.current = null;
+          const onScanFailure = (error: any) => {
+             // ignore, this is called frequently
+          };
+          
+          html5Qrcode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 }, supportedScanTypes: [0] },
+            onScanSuccess,
+            onScanFailure
+          );
+        } else {
+           setMessage("No camera found on this device.");
+           setHasPermission(false);
+        }
+      } catch (err) {
+        console.error("Camera permission error:", err);
+        setMessage("Camera permission was denied. Please enable it in your browser settings.");
+        setHasPermission(false);
       }
     };
-  }, [isOpen, status, onScan, onClose]);
+
+    startScanner();
+    
+    // Cleanup function
+    return () => {
+      if (html5Qrcode && html5Qrcode.isScanning) {
+        html5Qrcode.stop().catch((err: any) => console.error("Error stopping the scanner on cleanup: ", err));
+      }
+    };
+    
+  }, [isOpen, scriptStatus, onClose, onScan, toast]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -74,7 +99,19 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
           <DialogTitle>Scan Barcode/QR Code</DialogTitle>
           <DialogDescription>{message}</DialogDescription>
         </DialogHeader>
-        <div id="scanner-container" className="w-full aspect-video bg-muted rounded-md overflow-hidden" />
+        <div id="scanner-container" className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
+          {hasPermission === false && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80">
+              <CameraOff className="h-16 w-16 text-destructive mb-4" />
+              <Alert variant="destructive" className="max-w-sm">
+                <AlertTitle>Camera Access Denied</AlertTitle>
+                <AlertDescription>
+                  Please enable camera permissions in your browser settings to use the scanner.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
