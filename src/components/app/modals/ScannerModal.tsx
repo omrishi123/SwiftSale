@@ -25,74 +25,55 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!isOpen || scriptStatus !== 'ready' || !window.Html5QrcodeScanner) {
-      return;
-    }
+    if (isOpen && scriptStatus === 'ready' && window.Html5QrcodeScanner) {
+      
+      const onScanSuccess = (decodedText: string, decodedResult: any) => {
+        if (scannerRef.current) {
+          scannerRef.current.clear();
+        }
+        onScan(decodedText);
+        onClose();
+      };
 
-    // Ensure the container element exists before initializing
-    const scannerContainer = document.getElementById(SCANNER_CONTAINER_ID);
-    if (!scannerContainer) {
-      // The container is not in the DOM yet, wait for the next render.
-      return;
-    }
-    
-    // Prevent re-initialization
-    if (scannerRef.current) {
-      return;
-    }
+      const onScanFailure = (error: any) => {
+        // This is called frequently, so we don't toast here.
+        // console.warn(`Code scan error = ${error}`);
+      };
 
-    const onScanSuccess = (decodedText: string, decodedResult: any) => {
-      onScan(decodedText);
-      onClose(); 
-    };
+      // Ensure the container is present
+      const container = document.getElementById(SCANNER_CONTAINER_ID);
+      if (container && !scannerRef.current) {
+        const scanner = new window.Html5QrcodeScanner(
+          SCANNER_CONTAINER_ID,
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            rememberLastUsedCamera: true,
+          },
+          false // verbose
+        );
 
-    const onScanFailure = (error: any) => {
-      // This can be noisy, so it's commented out unless needed for debugging.
-      // console.warn(`Code scan error = ${error}`);
-    };
-    
-    const config = {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
-      supportedScanTypes: [0], // 0 represents all supported types
-      rememberLastUsedCamera: true,
-    };
-    
-    try {
-      const scanner = new window.Html5QrcodeScanner(
-        SCANNER_CONTAINER_ID,
-        config,
-        false // verbose
-      );
-      scanner.render(onScanSuccess, onScanFailure);
-      scannerRef.current = scanner;
-    } catch (err: any) {
-      console.error("Scanner Initialization Error:", err);
-      toast({
-        variant: "destructive",
-        title: "Scanner Error",
-        description: err.message || "Failed to initialize the scanner.",
-      });
+        scanner.render(onScanSuccess, onScanFailure);
+        scannerRef.current = scanner;
+      }
     }
 
     // Cleanup function
     return () => {
       if (scannerRef.current) {
+        // Use a try-catch block to handle potential errors during cleanup
         try {
-          // Check if scanner is running before trying to clear it
-          if (scannerRef.current.getState() === 2 /* SCANNING */) {
-            scannerRef.current.clear().catch((error: any) => {
-              console.error("Failed to clear scanner on cleanup:", error);
-            });
-          }
+           if (scannerRef.current.getState() === 2 /* SCANNING */) {
+            scannerRef.current.clear();
+           }
         } catch (error) {
-          console.error("Error during scanner cleanup:", error);
+          console.error("Failed to clear scanner on cleanup:", error);
         }
         scannerRef.current = null;
       }
     };
   }, [isOpen, scriptStatus, onScan, onClose, toast]);
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={onClose}>
@@ -102,7 +83,7 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
         </DialogHeader>
         {scriptStatus === 'loading' && <p>Loading scanner...</p>}
         {scriptStatus === 'error' && <p className="text-destructive">Failed to load scanner script.</p>}
-        <div id={SCANNER_CONTAINER_ID} className="w-full" />
+        <div id={SCANNER_CONTAINER_ID} className="w-full min-h-[300px]" />
       </DialogContent>
     </Dialog>
   );
