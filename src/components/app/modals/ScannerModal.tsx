@@ -25,22 +25,28 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
   const { toast } = useToast();
 
   useEffect(() => {
-    if (isOpen && scriptStatus === 'ready' && window.Html5QrcodeScanner && !scannerRef.current) {
+    if (isOpen && scriptStatus === 'ready' && window.Html5QrcodeScanner) {
         
+        if (scannerRef.current) {
+            // Already initialized
+            return;
+        }
+
         const onScanSuccess = (decodedText: string, decodedResult: any) => {
             onScan(decodedText);
             onClose(); 
         };
 
         const onScanFailure = (error: any) => {
-            // This can be noisy, so only log if needed for debugging.
-            // console.warn(`Code scan error = ${error}`);
+             // This can be noisy, so only log if needed for debugging.
+             // console.warn(`Code scan error = ${error}`);
         };
         
         const config = {
             fps: 10,
             qrbox: { width: 250, height: 250 },
             supportedScanTypes: [0], // 0 represents all supported types (QR and Barcodes)
+            rememberLastUsedCamera: true,
         };
         
         try {
@@ -52,6 +58,7 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
             scanner.render(onScanSuccess, onScanFailure);
             scannerRef.current = scanner;
         } catch (err: any) {
+            console.error("Scanner Initialization Error:", err);
             toast({
                 variant: "destructive",
                 title: "Scanner Error",
@@ -60,20 +67,23 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
         }
     }
 
+    // Cleanup function
     return () => {
         if (scannerRef.current) {
             try {
-                if (scannerRef.current.getState() !== 1 /* NOT_STARTED */) {
+                // Check if scanner is running before trying to clear it
+                if (scannerRef.current.getState() === 2 /* SCANNING */) {
                     scannerRef.current.clear();
                 }
             } catch (error) {
-                // This can happen if the component unmounts before the scanner is fully ready.
-                // It's generally safe to ignore.
+                console.error("Failed to clear scanner:", error);
             }
             scannerRef.current = null;
         }
     };
-  // eslint-disable--next-line react-hooks/exhaustive-deps
+  // The dependencies must be stable across renders.
+  // Functions defined outside the component (like onScan, onClose) can cause issues if not memoized.
+  // By limiting dependencies to only what's necessary to trigger the effect (isOpen, scriptStatus), we stabilize it.
   }, [isOpen, scriptStatus, onScan, onClose, toast]);
   
   return (
@@ -83,9 +93,10 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
           <DialogTitle>Scan Barcode/QR Code</DialogTitle>
           <DialogDescription>Place a code inside the frame. The scanner will detect it automatically.</DialogDescription>
         </DialogHeader>
-        {scriptStatus === 'ready' && <div id={SCANNER_CONTAINER_ID} className="w-full" />}
         {scriptStatus === 'loading' && <p>Loading scanner...</p>}
         {scriptStatus === 'error' && <p className="text-destructive">Failed to load scanner script.</p>}
+        {/* This div is the target for the scanner library */}
+        <div id={SCANNER_CONTAINER_ID} className="w-full" />
       </DialogContent>
     </Dialog>
   );
