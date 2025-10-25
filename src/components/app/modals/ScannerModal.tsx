@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import useScript from '@/hooks/use-script';
-import { CameraOff, Loader } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 declare global {
   interface Window {
     Html5Qrcode: any;
+    Html5QrcodeScanner: any;
   }
 }
 
@@ -20,154 +18,79 @@ interface ScannerModalProps {
   onScan: (decodedText: string) => void;
 }
 
+const SCANNER_CONTAINER_ID = "html5-qrcode-scanner-container";
+
 export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalProps) {
   const scriptStatus = useScript("https://unpkg.com/html5-qrcode/html5-qrcode.min.js");
   const scannerRef = useRef<any>(null);
   const { toast } = useToast();
-  
-  const [status, setStatus] = useState<'idle' | 'requesting' | 'scanning' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState('');
-
-  const stopScanner = () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
-      scannerRef.current.stop().catch((err: any) => {
-        // This can sometimes throw an error if the camera is already stopped, so we can ignore it.
-        console.warn("Scanner stop error (ignorable):", err);
-      });
-      scannerRef.current = null;
-    }
-  };
-  
-  const handleClose = () => {
-    stopScanner();
-    onClose();
-  };
-
-  const startScanner = async () => {
-    setStatus('requesting');
-    
-    // Ensure the container exists
-    const scannerContainer = document.getElementById("scanner-container");
-    if (!scannerContainer) {
-        setStatus('error');
-        setErrorMessage("Scanner container not found in the DOM.");
-        return;
-    }
-
-    try {
-        const cameras = await window.Html5Qrcode.getCameras();
-        if (!cameras || cameras.length === 0) {
-            setStatus('error');
-            setErrorMessage("No cameras found on this device.");
-            return;
-        }
-
-        if (!scannerRef.current) {
-            scannerRef.current = new window.Html5Qrcode("scanner-container", false);
-        }
-        const html5Qrcode = scannerRef.current;
-
-        const onScanSuccess = (decodedText: string, decodedResult: any) => {
-            if (html5Qrcode.isScanning) {
-                onScan(decodedText);
-                handleClose();
-            }
-        };
-
-        const onScanFailure = (error: any) => {
-            // This callback is called frequently, so we don't log anything here
-            // to avoid spamming the console.
-        };
-
-        await html5Qrcode.start(
-            { facingMode: "environment" },
-            { 
-                fps: 10, 
-                qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                    const qrboxSize = Math.floor(minEdge * 0.8);
-                    return { width: qrboxSize, height: qrboxSize };
-                },
-                supportedScanTypes: [0] // 0 for QR and Bar codes
-            },
-            onScanSuccess,
-            onScanFailure
-        );
-        setStatus('scanning');
-
-    } catch (err: any) {
-        console.error("Scanner Error:", err);
-        setStatus('error');
-        if (err.name === 'NotAllowedError') {
-            setErrorMessage("Camera permission was denied. Please enable it in your browser settings and try again.");
-        } else {
-            setErrorMessage(err.message || "An unexpected error occurred while starting the camera.");
-        }
-    }
-  };
-
 
   useEffect(() => {
-    if (isOpen && scriptStatus === 'ready' && status === 'idle') {
-      startScanner();
+    if (!isOpen || scriptStatus !== 'ready' || !window.Html5QrcodeScanner) {
+      return;
     }
-    
-    // Cleanup on unmount or when modal is closed
+
+    // If a scanner instance doesn't exist, create one.
+    if (!scannerRef.current) {
+      const onScanSuccess = (decodedText: string, decodedResult: any) => {
+        onScan(decodedText);
+        onClose(); // Close the modal on successful scan
+      };
+
+      const onScanFailure = (error: any) => {
+        // This is called frequently, so we don't want to spam notifications.
+        // It's useful for debugging but not for the user.
+      };
+      
+      const config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        supportedScanTypes: [0], // 0 for QR and Bar codes
+      };
+
+      try {
+        const scanner = new window.Html5QrcodeScanner(
+          SCANNER_CONTAINER_ID,
+          config,
+          /* verbose= */ false
+        );
+        scanner.render(onScanSuccess, onScanFailure);
+        scannerRef.current = scanner;
+      } catch (err: any) {
+        toast({
+            variant: "destructive",
+            title: "Scanner Error",
+            description: err.message || "Failed to initialize the scanner.",
+        });
+      }
+    }
+
+    // Cleanup function to run when the modal is closed or component unmounts
     return () => {
-      if(isOpen) {
-         stopScanner();
+      if (scannerRef.current) {
+        // The .clear() method stops the camera and cleans up the UI.
+        // It can throw an error if the scanner is already cleared or not running,
+        // so we wrap it in a try-catch block.
+        try {
+          scannerRef.current.clear();
+        } catch (error) {
+            // This error is generally safe to ignore as it just means
+            // the scanner was already stopped.
+        }
+        scannerRef.current = null;
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, scriptStatus]);
 
-
-  const getDialogContent = () => {
-      let description = "Please wait...";
-      let content = <div className="flex items-center justify-center h-full"><Loader className="h-12 w-12 animate-spin" /></div>;
-
-      switch(status) {
-        case 'requesting':
-            description = "Requesting camera permissions...";
-            break;
-        case 'scanning':
-            description = "Place a barcode inside the scanning area.";
-            break;
-        case 'error':
-            description = "Scanner Error";
-            content = (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 p-4">
-                  <CameraOff className="h-16 w-16 text-destructive mb-4" />
-                  <Alert variant="destructive" className="max-w-sm text-center">
-                    <AlertTitle>Camera Access Failed</AlertTitle>
-                    <AlertDescription>
-                      {errorMessage}
-                    </AlertDescription>
-                  </Alert>
-                   <Button variant="outline" onClick={startScanner} className="mt-4">Try Again</Button>
-                </div>
-            );
-            break;
-        case 'idle':
-            if (scriptStatus === 'loading') description = "Loading scanner...";
-            break;
-      }
-      
-      return { description, content };
-  };
-  
-  const { description, content } = getDialogContent();
-
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={handleClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={onClose}>
         <DialogHeader>
           <DialogTitle>Scan Barcode/QR Code</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogDescription>Place a code inside the frame. The scanner will detect it automatically.</DialogDescription>
         </DialogHeader>
-        <div id="scanner-container" className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
-          {status !== 'scanning' && content}
-        </div>
+        <div id={SCANNER_CONTAINER_ID} className="w-full" />
       </DialogContent>
     </Dialog>
   );
