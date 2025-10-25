@@ -21,15 +21,11 @@ export default function BillView({ sale, changeView }: BillViewProps) {
   const settings = appData.settings;
 
   useEffect(() => {
-    // Add print-specific class to body
     document.body.classList.add('printing-bill');
-    // Automatically trigger print dialog when component mounts
-    setTimeout(() => window.print(), 100);
-    
+    window.print();
     return () => {
-      // Clean up class from body
       document.body.classList.remove('printing-bill');
-    }
+    };
   }, []);
 
 
