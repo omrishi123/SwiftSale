@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,11 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sparkles, QrCode } from 'lucide-react';
 import { generateSkuAction } from '@/app/actions';
+import type { ModalType } from '../MainLayout';
 
 interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
-  openModal: (type: 'scanner', data: any) => void;
+  openModal: (type: ModalType, data: any) => void;
 }
 
 const productSchema = z.object({
@@ -54,13 +55,13 @@ export default function AddProductModal({ isOpen, onClose, openModal }: AddProdu
     setIsGenerating(false);
   };
   
-  const handleScanSku = () => {
-    openModal('scanner', {
-      onScan: (decodedText: string) => {
-        setValue('sku', decodedText);
-      }
-    });
-  };
+  const onScan = useCallback((decodedText: string) => {
+    setValue('sku', decodedText);
+  }, [setValue]);
+
+  const handleScanSku = useCallback(() => {
+    openModal('scanner', { onScan });
+  }, [openModal, onScan]);
 
   const onSubmit: SubmitHandler<ProductFormData> = (data) => {
     const { quantity, ...productData } = data;

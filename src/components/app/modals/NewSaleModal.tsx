@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAppData } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,12 @@ import { Separator } from '@/components/ui/separator';
 import { QrCode, Trash2, Plus, Minus } from 'lucide-react';
 import type { Customer, SaleItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import type { View } from '../MainLayout';
+import type { View, ModalType } from '../MainLayout';
 
 interface NewSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  openModal: (type: 'scanner', data: any) => void;
+  openModal: (type: ModalType, data: any) => void;
   changeView: (view: View, data?: any) => void;
 }
 
@@ -80,15 +80,6 @@ export default function NewSaleModal({ isOpen, onClose, openModal, changeView }:
     setQuantity(1);
   };
   
-  const handleScanSku = (sku: string) => {
-    const product = appData.stock.find(p => p.sku === sku);
-    if (!product) {
-      toast({ variant: 'destructive', title: "Product not found", description: `SKU ${sku} not in inventory.` });
-      return;
-    }
-    updateItemQuantity(sku, 1);
-  };
-
   const updateItemQuantity = (sku: string, change: number) => {
     const item = saleItems.find(i => i.sku === sku);
     const product = appData.stock.find(p => p.sku === sku);
@@ -110,6 +101,16 @@ export default function NewSaleModal({ isOpen, onClose, openModal, changeView }:
       }
     }
   };
+
+  const handleScanSku = useCallback((sku: string) => {
+    const product = appData.stock.find(p => p.sku === sku);
+    if (!product) {
+      toast({ variant: 'destructive', title: "Product not found", description: `SKU ${sku} not in inventory.` });
+      return;
+    }
+    // Add 1 item of the scanned product
+    updateItemQuantity(sku, 1);
+  }, [appData.stock, toast, updateItemQuantity]);
 
   const financialSummary = useMemo(() => {
     const subtotal = saleItems.reduce((sum, i) => sum + (i.salePrice * i.quantity), 0);
@@ -170,6 +171,10 @@ export default function NewSaleModal({ isOpen, onClose, openModal, changeView }:
     }
   };
 
+  const handleOpenScanner = useCallback(() => {
+    openModal('scanner', { onScan: handleScanSku });
+  }, [openModal, handleScanSku]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl">
@@ -215,7 +220,7 @@ export default function NewSaleModal({ isOpen, onClose, openModal, changeView }:
                 <Input type="number" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="w-20" />
                 <Button type="button" onClick={handleAddItem}>Add</Button>
               </div>
-               <Button type="button" variant="outline" className="w-full" onClick={() => openModal('scanner', { onScan: handleScanSku })}>
+               <Button type="button" variant="outline" className="w-full" onClick={handleOpenScanner}>
                 <QrCode className="mr-2 h-4 w-4" /> Scan Product
               </Button>
             </div>
