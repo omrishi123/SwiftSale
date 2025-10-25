@@ -1,14 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import useScript from '@/hooks/use-script';
-import { useToast } from '@/hooks/use-toast';
 
 declare global {
   interface Window {
-    Html5Qrcode: any;
     Html5QrcodeScanner: any;
   }
 }
@@ -27,35 +25,39 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
 
   useEffect(() => {
     if (isOpen && scriptStatus === 'ready' && !scannerRef.current) {
-      const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        rememberLastUsedCamera: true,
-      };
-
       const onScanSuccess = (decodedText: string, decodedResult: any) => {
         onScan(decodedText);
         onClose();
       };
 
       const onScanFailure = (error: any) => {
-        // ignore 'Code not found' errors
+        // This callback is required but we can ignore failures.
       };
-      
-      const scanner = new window.Html5QrcodeScanner(
-        SCANNER_REGION_ID,
-        config,
-        false // verbose
-      );
 
-      scanner.render(onScanSuccess, onScanFailure);
-      scannerRef.current = scanner;
+      // Ensure the container element exists before creating the scanner
+      if (document.getElementById(SCANNER_REGION_ID)) {
+        const html5QrcodeScanner = new window.Html5QrcodeScanner(
+          SCANNER_REGION_ID,
+          { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 },
+            // Important: This tells the scanner to use the camera directly
+            // and not show the file upload option.
+            rememberLastUsedCamera: true,
+          },
+          /* verbose= */ false
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        scannerRef.current = html5QrcodeScanner;
+      }
     }
 
-    // Cleanup
+    // Cleanup function to clear the scanner
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.clear();
+        scannerRef.current.clear().catch((error: any) => {
+          console.error("Failed to clear html5QrcodeScanner.", error);
+        });
         scannerRef.current = null;
       }
     };
@@ -77,6 +79,7 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
             </AlertDescription>
           </Alert>
         )}
+        {/* The div for the scanner to attach to */}
         <div id={SCANNER_REGION_ID} className="w-full min-h-[300px]" />
       </DialogContent>
     </Dialog>
