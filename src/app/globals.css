@@ -90,18 +90,35 @@ body {
   }
 }
 
-/* Print styles */
 @media print {
-  body > *:not(.bill-container-wrapper) {
-    display: none !important;
+  /* This is the A4 size rule */
+  @page {
+    size: A4;
+    margin: 0;
   }
-  .bill-container-wrapper {
+
+  /* Hide everything in the body by default when printing */
+  body.printing-bill > *:not(.bill-container-wrapper) {
+    display: none;
+  }
+  
+  /* Ensure the bill container wrapper is visible and positioned correctly */
+  body.printing-bill .bill-container-wrapper {
     display: block !important;
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
+    height: 100%;
+  }
+  
+  .bill-container {
+    width: 210mm; /* A4 width */
+    min-height: 297mm; /* A4 height */
+    padding: 20mm; /* Standard margin */
+    margin: 0 auto;
     background: white;
     color: black;
+    box-sizing: border-box;
   }
 }

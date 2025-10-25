@@ -93,7 +93,7 @@ export default function MainLayout() {
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ], []);
 
-  const ActiveComponent = useMemo(() => viewConfig[activeView].component, [activeView, viewConfig]);
+  const ActiveComponent = React.useMemo(() => viewConfig[activeView].component, [activeView, viewConfig]);
 
   if (!isLoaded) {
     return (

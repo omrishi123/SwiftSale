@@ -21,8 +21,15 @@ export default function BillView({ sale, changeView }: BillViewProps) {
   const settings = appData.settings;
 
   useEffect(() => {
+    // Add print-specific class to body
+    document.body.classList.add('printing-bill');
     // Automatically trigger print dialog when component mounts
     setTimeout(() => window.print(), 100);
+    
+    return () => {
+      // Clean up class from body
+      document.body.classList.remove('printing-bill');
+    }
   }, []);
 
 
@@ -35,14 +42,13 @@ export default function BillView({ sale, changeView }: BillViewProps) {
   };
 
   return (
-    <div className="bill-container-wrapper">
-      <div className="max-w-3xl mx-auto p-4 sm:p-8 bg-background text-foreground space-y-6">
-        <div className="flex justify-between items-center print:hidden">
-          <Button variant="outline" onClick={handleBack}><ArrowLeft className="mr-2" /> Back to Sales</Button>
-          <Button onClick={handlePrint}><Printer className="mr-2" /> Print Bill</Button>
-        </div>
-        
-        <div className="border rounded-lg p-6" id="bill-content">
+    <>
+      <div className="flex justify-between items-center p-4 sm:p-8 print:hidden">
+        <Button variant="outline" onClick={handleBack}><ArrowLeft className="mr-2" /> Back to Sales</Button>
+        <Button onClick={handlePrint}><Printer className="mr-2" /> Print Bill</Button>
+      </div>
+      <div className="bill-container-wrapper">
+        <div className="bill-container" id="bill-content">
           <header className="grid grid-cols-2 items-start pb-6">
             <div>
               <h1 className="text-2xl font-bold text-primary">{settings.shopName || 'Your Shop'}</h1>
@@ -130,6 +136,6 @@ export default function BillView({ sale, changeView }: BillViewProps) {
           </footer>
         </div>
       </div>
-    </div>
+    </>
   );
 }
