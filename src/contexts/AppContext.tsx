@@ -82,9 +82,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const addSale = useCallback((saleData: Omit<Sale, 'id' | 'profit'>): Sale => {
+    const profit = saleData.items.reduce((sum, i) => sum + ((i.salePrice - i.costPrice) * i.quantity), 0);
     let newSale: Sale | null = null;
+    
     setAppData(prev => {
-      const profit = saleData.items.reduce((sum, i) => sum + ((i.salePrice - i.costPrice) * i.quantity), 0);
       const saleId = prev.nextIds.sale;
       newSale = { ...saleData, id: saleId, profit };
       
