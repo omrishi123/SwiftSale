@@ -31,10 +31,16 @@ export default function BillView({ sale, changeView }: BillViewProps) {
   const handleDownload = () => {
     const input = document.getElementById('bill-content');
     if (input) {
+      // Temporarily apply print styles for PDF generation
+      document.body.classList.add('printing-bill');
+
       html2canvas(input, {
         scale: 2, // Higher scale for better quality
         useCORS: true 
       }).then(canvas => {
+        // Remove print styles right after canvas is created
+        document.body.classList.remove('printing-bill');
+        
         const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -45,16 +51,18 @@ export default function BillView({ sale, changeView }: BillViewProps) {
         const width = pdfWidth;
         const height = width / ratio;
         
-        let position = 0;
-        
         if (height <= pdfHeight) {
             pdf.addImage(imgData, 'PNG', 0, 0, width, height);
         } else {
             console.error("The bill content is too long to fit on a single PDF page.");
-            // Or handle multi-page PDF generation
+            pdf.addImage(imgData, 'PNG', 0, 0, width, height);
         }
 
         pdf.save(`invoice-${sale.id}.pdf`);
+      }).catch(err => {
+        // Ensure styles are removed even if there's an error
+        document.body.classList.remove('printing-bill');
+        console.error("Error generating PDF:", err);
       });
     }
   };
