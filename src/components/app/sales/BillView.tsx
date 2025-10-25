@@ -34,7 +34,7 @@ export default function BillView({ sale, changeView }: BillViewProps) {
       document.body.classList.add('printing-bill');
 
       html2canvas(input, { 
-        scale: 2,
+        scale: 2, // Higher scale for better quality
         useCORS: true, 
         width: input.clientWidth,
         height: input.clientHeight,
@@ -48,19 +48,21 @@ export default function BillView({ sale, changeView }: BillViewProps) {
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
         
-        const ratio = canvas.width / canvas.height;
+        const canvasAspectRatio = canvas.width / canvas.height;
+        const pageAspectRatio = pdfWidth / pdfHeight;
+
         let imgWidth = pdfWidth;
-        let imgHeight = pdfWidth / ratio;
+        let imgHeight = pdfWidth / canvasAspectRatio;
 
         if (imgHeight > pdfHeight) {
-            imgHeight = pdfHeight;
-            imgWidth = pdfHeight * ratio;
+          imgHeight = pdfHeight;
+          imgWidth = pdfHeight * canvasAspectRatio;
         }
+        
+        const xOffset = (pdfWidth - imgWidth) / 2;
+        const yOffset = (pdfHeight - imgHeight) / 2;
 
-        const x = (pdfWidth - imgWidth) / 2;
-        const y = (pdfHeight - imgHeight) / 2;
-
-        pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+        pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
         pdf.save(`invoice-${sale.id}.pdf`);
       }).catch(err => {
         document.body.classList.remove('printing-bill');
@@ -68,6 +70,7 @@ export default function BillView({ sale, changeView }: BillViewProps) {
       });
     }
   };
+
 
   const handleBack = () => {
     changeView('sales');
