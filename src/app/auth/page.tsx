@@ -76,18 +76,14 @@ export default function AuthPage() {
         if (userCredential && userCredential.user) {
           const shopId = userCredential.user.uid;
 
-          // Create a new batch
+          // Create a new batch to perform multiple writes atomically
           const batch = writeBatch(firestore);
 
           // 1. Create the main shop document
           const shopDocRef = doc(firestore, 'shops', shopId);
           batch.set(shopDocRef, {
             id: shopId,
-            name: initialData.settings.shopName,
-            address: initialData.settings.shopAddress,
-            phone: initialData.settings.shopPhone,
-            gstin: initialData.settings.shopGstin,
-            defaultTaxRate: initialData.settings.defaultTax,
+            name: 'My New Shop', // Default name
             createdAt: new Date().toISOString(),
           });
 
@@ -98,7 +94,7 @@ export default function AuthPage() {
           );
           batch.set(settingsDocRef, initialData.settings);
 
-          // Commit the batch
+          // Atomically commit the batch
           await batch.commit();
 
           toast({
