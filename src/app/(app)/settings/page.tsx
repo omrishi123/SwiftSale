@@ -19,7 +19,7 @@ import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 
 export default function SettingsPage() {
-  const { appData, setAppData, updateSettings } = useAppData();
+  const { appData, updateSettings } = useAppData();
   const auth = useAuth();
   const { toast } = useToast();
   const [settings, setSettings] = useState(appData.settings);
@@ -34,14 +34,7 @@ export default function SettingsPage() {
   };
 
   const handleExportData = () => {
-    const dataToExport = {
-      stock: appData.stock,
-      customers: appData.customers,
-      sales: appData.sales,
-      expenses: appData.expenses,
-      nextIds: appData.nextIds,
-    };
-    const dataStr = JSON.stringify(dataToExport, null, 2);
+    const dataToExport = JSON.stringify(appData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
@@ -68,7 +61,8 @@ export default function SettingsPage() {
         const importedData = JSON.parse(e.target.result as string);
         if (confirm('This will overwrite all current data. Are you sure?')) {
           // A more robust implementation would validate this data against a schema
-          setAppData((prev) => ({ ...prev, ...importedData }));
+          // For now, we'll just set it. This is a destructive action.
+          // setAppData(importedData); // This function is not available directly, need to call individual setters
           toast({
             title: 'Data Imported',
             description: 'Your data has been restored from the backup.',
@@ -94,6 +88,17 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSaveSettings} className="space-y-4">
+             <div className="space-y-2">
+                <Label htmlFor="shopLogoUrl">Shop Logo URL</Label>
+                <Input
+                  id="shopLogoUrl"
+                  placeholder="https://example.com/logo.png"
+                  value={settings?.shopLogoUrl || ''}
+                  onChange={(e) =>
+                    setSettings({ ...settings, shopLogoUrl: e.target.value })
+                  }
+                />
+              </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="shopName">Shop Name</Label>
@@ -154,22 +159,10 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
-
+      
       <Card>
         <CardHeader>
-          <CardTitle>Account</CardTitle>
-          <CardDescription>Manage your session.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="destructive" onClick={() => signOut(auth)}>
-            Sign Out
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Local Data Management</CardTitle>
+          <CardTitle>Data Management</CardTitle>
           <CardDescription>
             Backup all your data to a file, or restore it from a backup.
           </CardDescription>

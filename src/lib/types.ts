@@ -51,6 +51,7 @@ export interface AppSettings {
   shopPhone?: string;
   shopAddress?: string;
   defaultTax?: number;
+  shopLogoUrl?: string;
 }
 
 export interface AppData {

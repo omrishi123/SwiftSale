@@ -29,6 +29,10 @@
         "defaultTaxRate": {
           "type": "number",
           "description": "Default GST (Goods and Services Tax) rate applied in the shop, as a percentage."
+        },
+        "shopLogoUrl": {
+            "type": "string",
+            "description": "URL for the shop's logo image."
         }
       },
       "required": [
