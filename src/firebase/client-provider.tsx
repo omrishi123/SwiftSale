@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, type ReactNode } from 'react';
+import React, { useState, useEffect, type ReactNode } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
 import { initializeFirebase } from '@/firebase';
 import { AppProvider } from '@/contexts/AppContext';
@@ -15,19 +15,24 @@ interface FirebaseClientProviderProps {
 export function FirebaseClientProvider({
   children,
 }: FirebaseClientProviderProps) {
-  const firebaseServices = useMemo(() => {
-    // This check ensures Firebase is only initialized on the client side.
+  const [firebaseServices, setFirebaseServices] = useState<{
+    firebaseApp: any;
+    auth: any;
+    firestore: any;
+  } | null>(null);
+
+  useEffect(() => {
+    // This effect runs only once on the client after the component mounts
     if (typeof window !== 'undefined') {
-      return initializeFirebase();
+      setFirebaseServices(initializeFirebase());
     }
-    return null;
   }, []);
 
   const pathname = usePathname();
   const isAuthPage = pathname.startsWith('/auth');
 
   if (!firebaseServices) {
-    // Render a loading state or null on the server
+    // Render a loading state or null on the server and during initial client render
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="text-xl font-semibold">Loading...</div>

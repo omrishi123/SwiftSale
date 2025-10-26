@@ -8,12 +8,12 @@ import { getStorage } from 'firebase/storage';
 
 // This function should only be used in a client-side context.
 export function initializeFirebase() {
-  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   return {
     firebaseApp: app,
     auth: getAuth(app),
     firestore: getFirestore(app),
-    storage: getStorage(app)
+    storage: getStorage(app),
   };
 }
 
