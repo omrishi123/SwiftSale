@@ -15,21 +15,17 @@ import {
 import { Download, Upload, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
-import { useAuth, useFirebaseApp } from '@/firebase';
+import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 
 export default function SettingsPage() {
   const { appData, updateSettings } = useAppData();
   const auth = useAuth();
-  const firebaseApp = useFirebaseApp();
   const { toast } = useToast();
   const [settings, setSettings] = useState(appData.settings);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,63 +40,44 @@ export default function SettingsPage() {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (!file || !auth.currentUser) return;
+    if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      // 2MB limit
+    if (file.size > 1 * 1024 * 1024) {
+      // 1MB limit for Firestore document
       toast({
         variant: 'destructive',
         title: 'File Too Large',
-        description: 'Please select an image smaller than 2MB.',
+        description: 'Please select an image smaller than 1MB.',
       });
       return;
     }
 
     setIsUploading(true);
-    setUploadProgress(0); // Reset progress
 
-    const storage = getStorage(firebaseApp);
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `logos/${auth.currentUser.uid}/${uuidv4()}.${fileExtension}`;
-    const storageRef = ref(storage, fileName);
-
-    try {
-      // Simulate progress for better UX as uploadBytes doesn't provide it
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(progressInterval);
-            return 95;
-          }
-          return prev + 5;
-        });
-      }, 100);
-
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      setSettings({ ...settings, shopLogoUrl: downloadURL });
-      updateSettings({ ...settings, shopLogoUrl: downloadURL }); // Save immediately
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64String = reader.result as string;
+      const newSettings = { ...settings, shopLogoUrl: base64String };
+      setSettings(newSettings);
+      updateSettings(newSettings); // Save immediately
 
       toast({
-        title: 'Logo Uploaded',
+        title: 'Logo Updated',
         description: 'Your new shop logo has been saved.',
       });
-    } catch (error) {
-      console.error('Error uploading logo:', error);
+      setIsUploading(false);
+    };
+    reader.onerror = (error) => {
+      console.error('Error converting file to base64:', error);
       toast({
         variant: 'destructive',
         title: 'Upload Failed',
         description:
-          'There was an error uploading your logo. Please try again.',
+          'There was an error processing your logo. Please try again.',
       });
-    } finally {
       setIsUploading(false);
-      setTimeout(() => setUploadProgress(0), 1000); // Hide progress bar after a delay
-    }
+    };
   };
 
   const handleExportData = () => {
@@ -185,7 +162,7 @@ export default function SettingsPage() {
                   </Label>
                 </Button>
               </div>
-              {isUploading && <Progress value={uploadProgress} className="mt-2" />}
+              {isUploading && <Progress value={100} className="mt-2 h-2" />}
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
