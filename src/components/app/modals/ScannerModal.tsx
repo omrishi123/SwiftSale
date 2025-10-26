@@ -31,7 +31,14 @@ export default function ScannerModal({ isOpen, onClose, onScan }: ScannerModalPr
           throw new Error("No video input devices found");
         }
         
-        selectedDeviceId = videoInputDevices[0].deviceId;
+        // Prefer the rear camera
+        const rearCamera = videoInputDevices.find(device => 
+          device.label.toLowerCase().includes('back') || 
+          device.label.toLowerCase().includes('environment')
+        );
+
+        selectedDeviceId = rearCamera ? rearCamera.deviceId : videoInputDevices[0].deviceId;
+        
         setHasCameraPermission(true);
         setScannerStatus('scanning');
 
