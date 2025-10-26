@@ -16,6 +16,7 @@ import { ArrowLeft, Printer, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface BillPageProps {
   params: {
@@ -117,24 +118,35 @@ export default function BillPage({ params }: BillPageProps) {
       </div>
       <div className="bill-container-wrapper">
         <div className="bill-container" id="bill-content">
-          <header className="grid grid-cols-2 items-start pb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-primary">
-                {settings?.shopName || 'Your Shop'}
-              </h1>
-              <p className="text-muted-foreground text-sm">
-                {settings?.shopAddress}
-              </p>
-              <p className="text-muted-foreground text-sm">
-                Phone: {settings?.shopPhone}
-              </p>
-              {settings?.shopGstin && (
-                <p className="text-muted-foreground text-sm">
-                  GSTIN: {settings.shopGstin}
-                </p>
+          <header className="flex items-start justify-between pb-6">
+            <div className="flex items-center gap-4">
+              {settings?.shopLogoUrl && (
+                <Image
+                  src={settings.shopLogoUrl}
+                  alt="Shop Logo"
+                  width={64}
+                  height={64}
+                  className="rounded-md object-contain"
+                />
               )}
+              <div>
+                <h1 className="text-2xl font-bold text-primary">
+                  {settings?.shopName || 'Your Shop'}
+                </h1>
+                <p className="text-muted-foreground text-sm">
+                  {settings?.shopAddress}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Phone: {settings?.shopPhone}
+                </p>
+                {settings?.shopGstin && (
+                  <p className="text-muted-foreground text-sm">
+                    GSTIN: {settings.shopGstin}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="text-right">
+            <div className="text-right flex-shrink-0">
               <h2 className="text-xl font-semibold">Invoice</h2>
               <p className="text-muted-foreground">Invoice #: {sale.id}</p>
               <p className="text-muted-foreground">
@@ -220,9 +232,21 @@ export default function BillPage({ params }: BillPageProps) {
             </div>
           </div>
 
-          <footer className="text-center text-xs text-muted-foreground pt-8 border-t mt-6">
-            <p>Thank you for your business!</p>
-            <p>This is a computer-generated invoice.</p>
+          <footer className="text-xs text-muted-foreground pt-8 border-t mt-6 flex justify-between items-end">
+            <div>
+              <p>Thank you for your business!</p>
+              <p>This is a computer-generated invoice.</p>
+            </div>
+            {settings?.shopSignatureUrl && (
+              <div className="w-32 h-16 relative">
+                <Image
+                  src={settings.shopSignatureUrl}
+                  alt="Authorized Signature"
+                  layout="fill"
+                  objectFit="contain"
+                />
+              </div>
+            )}
           </footer>
         </div>
       </div>

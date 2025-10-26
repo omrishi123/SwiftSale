@@ -12,20 +12,25 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import { Download, Upload, Image as ImageIcon } from 'lucide-react';
+import {
+  Download,
+  Upload,
+  Image as ImageIcon,
+  PenLine,
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/firebase';
-import { signOut } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Progress } from '@/components/ui/progress';
+import Image from 'next/image';
 
 export default function SettingsPage() {
   const { appData, updateSettings } = useAppData();
   const auth = useAuth();
   const { toast } = useToast();
   const [settings, setSettings] = useState(appData.settings);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,14 +41,15 @@ export default function SettingsPage() {
     });
   };
 
-  const handleLogoUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+  const handleImageUpload = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    imageType: 'logo' | 'signature'
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     if (file.size > 1 * 1024 * 1024) {
-      // 1MB limit for Firestore document
+      // 1MB limit
       toast({
         variant: 'destructive',
         title: 'File Too Large',
@@ -52,21 +58,28 @@ export default function SettingsPage() {
       return;
     }
 
-    setIsUploading(true);
+    if (imageType === 'logo') setIsUploadingLogo(true);
+    if (imageType === 'signature') setIsUploadingSignature(true);
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => {
       const base64String = reader.result as string;
-      const newSettings = { ...settings, shopLogoUrl: base64String };
+      const newSettings =
+        imageType === 'logo'
+          ? { ...settings, shopLogoUrl: base64String }
+          : { ...settings, shopSignatureUrl: base64String };
       setSettings(newSettings);
       updateSettings(newSettings); // Save immediately
 
       toast({
-        title: 'Logo Updated',
-        description: 'Your new shop logo has been saved.',
+        title: `${imageType === 'logo' ? 'Logo' : 'Signature'} Updated`,
+        description: `Your new shop ${
+          imageType === 'logo' ? 'logo' : 'signature'
+        } has been saved.`,
       });
-      setIsUploading(false);
+      if (imageType === 'logo') setIsUploadingLogo(false);
+      if (imageType === 'signature') setIsUploadingSignature(false);
     };
     reader.onerror = (error) => {
       console.error('Error converting file to base64:', error);
@@ -74,9 +87,10 @@ export default function SettingsPage() {
         variant: 'destructive',
         title: 'Upload Failed',
         description:
-          'There was an error processing your logo. Please try again.',
+          'There was an error processing your image. Please try again.',
       });
-      setIsUploading(false);
+      if (imageType === 'logo') setIsUploadingLogo(false);
+      if (imageType === 'signature') setIsUploadingSignature(false);
     };
   };
 
@@ -108,8 +122,6 @@ export default function SettingsPage() {
         const importedData = JSON.parse(e.target.result as string);
         if (confirm('This will overwrite all current data. Are you sure?')) {
           // A more robust implementation would validate this data against a schema
-          // For now, we'll just set it. This is a destructive action.
-          // setAppData(importedData); // This function is not available directly, need to call individual setters
           toast({
             title: 'Data Imported',
             description: 'Your data has been restored from the backup.',
@@ -127,8 +139,7 @@ export default function SettingsPage() {
     event.target.value = ''; // Reset file input
   };
 
-  const shopNameInitial =
-    settings?.shopName?.charAt(0).toUpperCase() || 'S';
+  const shopNameInitial = settings?.shopName?.charAt(0).toUpperCase() || 'S';
 
   return (
     <div className="space-y-6">
@@ -138,33 +149,71 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSaveSettings} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Shop Logo</Label>
-              <div className="flex items-center gap-4">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src={settings?.shopLogoUrl} alt="Shop Logo" />
-                  <AvatarFallback className="text-3xl">
-                    {shopNameInitial}
-                  </AvatarFallback>
-                </Avatar>
-                <Button asChild variant="outline">
-                  <Label htmlFor="logo-upload">
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    {isUploading ? 'Uploading...' : 'Upload Logo'}
-                    <Input
-                      id="logo-upload"
-                      type="file"
-                      className="hidden"
-                      accept="image/png, image/jpeg, image/webp"
-                      onChange={handleLogoUpload}
-                      disabled={isUploading}
-                    />
-                  </Label>
-                </Button>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Shop Logo</Label>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={settings?.shopLogoUrl} alt="Shop Logo" />
+                    <AvatarFallback className="text-3xl">
+                      {shopNameInitial}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Button asChild variant="outline">
+                    <Label htmlFor="logo-upload">
+                      <ImageIcon className="mr-2 h-4 w-4" />
+                      {isUploadingLogo ? 'Uploading...' : 'Upload Logo'}
+                      <Input
+                        id="logo-upload"
+                        type="file"
+                        className="hidden"
+                        accept="image/png, image/jpeg, image/webp"
+                        onChange={(e) => handleImageUpload(e, 'logo')}
+                        disabled={isUploadingLogo}
+                      />
+                    </Label>
+                  </Button>
+                </div>
               </div>
-              {isUploading && <Progress value={100} className="mt-2 h-2" />}
+              <div className="space-y-2">
+                <Label>Shop Signature</Label>
+                <div className="flex items-center gap-4">
+                  <div className="w-40 h-20 border rounded-md flex items-center justify-center bg-muted/50">
+                    {settings?.shopSignatureUrl ? (
+                      <Image
+                        src={settings.shopSignatureUrl}
+                        alt="Shop Signature"
+                        width={150}
+                        height={70}
+                        style={{ objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        No Signature
+                      </span>
+                    )}
+                  </div>
+                  <Button asChild variant="outline">
+                    <Label htmlFor="signature-upload">
+                      <PenLine className="mr-2 h-4 w-4" />
+                      {isUploadingSignature
+                        ? 'Uploading...'
+                        : 'Upload Signature'}
+                      <Input
+                        id="signature-upload"
+                        type="file"
+                        className="hidden"
+                        accept="image/png, image/jpeg, image/webp"
+                        onChange={(e) => handleImageUpload(e, 'signature')}
+                        disabled={isUploadingSignature}
+                      />
+                    </Label>
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="grid sm:grid-cols-2 gap-4">
+
+            <div className="grid sm:grid-cols-2 gap-4 pt-4">
               <div className="space-y-2">
                 <Label htmlFor="shopName">Shop Name</Label>
                 <Input
