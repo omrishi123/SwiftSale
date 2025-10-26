@@ -13,9 +13,4 @@ export const initialData: AppData = {
   customers: [],
   sales: [],
   expenses: [],
-  nextIds: {
-    sale: '',
-    customer: '',
-    expense: '',
-  },
 };

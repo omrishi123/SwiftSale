@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { QrCode, Plus, Minus } from 'lucide-react';
+import { QrCode, Plus, Minus, Trash2 } from 'lucide-react';
 import type { Customer, SaleItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import type { ModalType } from '../MainLayout';
@@ -32,7 +32,7 @@ import { useRouter } from 'next/navigation';
 interface NewSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  openModal: (type: ModalType, data: any) => void;
+  openModal: (type: ModalType, data?: any) => void;
 }
 
 export default function NewSaleModal({
@@ -83,61 +83,47 @@ export default function NewSaleModal({
     [appData.stock]
   );
 
-  const handleAddItem = () => {
-    if (!selectedProductSku) return;
-    const product = appData.stock.find((p) => p.sku === selectedProductSku);
-    if (!product) return;
+  const updateItemQuantity = useCallback((sku: string, change: number) => {
+    const itemInCart = saleItems.find((i) => i.sku === sku);
+    const productInStock = appData.stock.find((p) => p.sku === sku);
+    if (!productInStock) return;
 
-    const existingItem = saleItems.find((i) => i.sku === product.sku);
-    const totalQty = (existingItem?.quantity || 0) + quantity;
+    const currentQuantity = itemInCart?.quantity || 0;
+    const newQuantity = currentQuantity + change;
 
-    if (totalQty > product.stock) {
+    if (newQuantity > productInStock.stock) {
       toast({
         variant: 'destructive',
         title: 'Not enough stock',
-        description: `Only ${product.stock} units available.`,
+        description: `Only ${productInStock.stock} units of ${productInStock.name} available.`,
       });
       return;
     }
 
-    if (existingItem) {
-      setSaleItems(
-        saleItems.map((i) =>
-          i.sku === product.sku ? { ...i, quantity: totalQty } : i
-        )
-      );
-    } else {
-      setSaleItems([...saleItems, { ...product, quantity }]);
-    }
-    setSelectedProductSku('');
-    setQuantity(1);
-  };
-
-  const updateItemQuantity = (sku: string, change: number) => {
-    const item = saleItems.find((i) => i.sku === sku);
-    const product = appData.stock.find((p) => p.sku === sku);
-    if (!product) return;
-
-    const newQuantity = (item?.quantity || 0) + change;
-
     if (newQuantity <= 0) {
-      if (item) {
-        setSaleItems(saleItems.filter((i) => i.sku !== sku));
-      }
-    } else if (newQuantity > product.stock) {
-      toast({ variant: 'destructive', title: 'Not enough stock' });
+      setSaleItems((prev) => prev.filter((i) => i.sku !== sku));
     } else {
-      if (item) {
-        setSaleItems(
-          saleItems.map((i) =>
+      if (itemInCart) {
+        setSaleItems((prev) =>
+          prev.map((i) =>
             i.sku === sku ? { ...i, quantity: newQuantity } : i
           )
         );
       } else {
-        setSaleItems([...saleItems, { ...product, quantity: newQuantity }]);
+        const {id, stock, reorderLevel, ...productData} = productInStock;
+        setSaleItems((prev) => [...prev, { ...productData, quantity: newQuantity, id: productInStock.id }]);
       }
     }
+  }, [saleItems, appData.stock, toast]);
+  
+
+  const handleAddItem = () => {
+    if (!selectedProductSku) return;
+    updateItemQuantity(selectedProductSku, quantity);
+    setSelectedProductSku('');
+    setQuantity(1);
   };
+
 
   const handleScanSku = useCallback(
     (sku: string) => {
@@ -148,6 +134,7 @@ export default function NewSaleModal({
           title: 'Product not found',
           description: `SKU ${sku} not in inventory.`,
         });
+        setIsScannerOpen(false);
         return;
       }
       updateItemQuantity(sku, 1);
@@ -176,7 +163,7 @@ export default function NewSaleModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    let customer: Customer | undefined;
+    let customer: Customer | null = null;
     if (isNewCustomer) {
       if (!newCustomerName) {
         toast({
@@ -198,7 +185,8 @@ export default function NewSaleModal({
         });
         return;
       }
-      customer = appData.customers.find((c) => c.id === selectedCustomerId);
+      const existingCustomer = appData.customers.find((c) => c.id === selectedCustomerId);
+      if(existingCustomer) customer = existingCustomer;
     }
     if (!customer) {
       toast({
@@ -306,7 +294,7 @@ export default function NewSaleModal({
                     </SelectTrigger>
                     <SelectContent>
                       {appData.customers.map((c) => (
-                        <SelectItem key={c.id} value={c.id.toString()}>
+                        <SelectItem key={c.id} value={c.id}>
                           {c.name}
                         </SelectItem>
                       ))}
@@ -352,7 +340,7 @@ export default function NewSaleModal({
                   className="w-full"
                   onClick={handleOpenScanner}
                 >
-                  <QrCode className="mr-2 h-4 w-4" /> Scan Product
+                  <QrCode className="mr-2 h-4 w-4" /> Scan Product & Add
                 </Button>
               </div>
             </div>
@@ -397,6 +385,15 @@ export default function NewSaleModal({
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
+                         <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => setSaleItems(prev => prev.filter(i => i.sku !== item.sku))}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                       </div>
                     </div>
                   ))

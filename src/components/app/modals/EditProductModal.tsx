@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { StockItem } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 interface EditProductModalProps {
   isOpen: boolean;
@@ -23,12 +24,14 @@ const productSchema = z.object({
   costPrice: z.coerce.number().min(0, "Cost price must be non-negative"),
   salePrice: z.coerce.number().min(0, "Sale price must be non-negative"),
   reorderLevel: z.coerce.number().min(0, "Reorder level must be non-negative"),
+  category: z.string().optional(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
 
 export default function EditProductModal({ isOpen, onClose, product }: EditProductModalProps) {
   const { updateStockItem } = useAppData();
+  const { toast } = useToast();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
   });
@@ -40,9 +43,12 @@ export default function EditProductModal({ isOpen, onClose, product }: EditProdu
   }, [product, reset]);
 
   const onSubmit: SubmitHandler<ProductFormData> = (data) => {
-    // Stock is not editable here, so we merge with the original product data
     if (product) {
       updateStockItem({ ...product, ...data });
+      toast({
+        title: "Product Updated",
+        description: `${data.name} has been successfully updated.`
+      })
     }
     onClose();
   };
@@ -62,6 +68,10 @@ export default function EditProductModal({ isOpen, onClose, product }: EditProdu
               <Input id="name" {...register('name')} />
               {errors.name && <p className="text-destructive text-sm">{errors.name.message}</p>}
             </div>
+             <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Input id="category" {...register('category')} />
+              </div>
             <div className="space-y-2">
               <Label htmlFor="costPrice">Cost Price (₹)</Label>
               <Input id="costPrice" type="number" step="0.01" {...register('costPrice')} />

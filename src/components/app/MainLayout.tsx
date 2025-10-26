@@ -111,10 +111,13 @@ export default function MainLayout({
         return <SettingsPage />;
       case '/stock':
         return <StockPage openModal={openModal} />;
-      default:
+      case '/':
         return <DashboardPage openModal={openModal} />;
+      default:
+        // This will render the content for routes like /sales/[saleId]
+        return children;
     }
-  }, [pathname, openModal]);
+  }, [pathname, openModal, children]);
 
   return (
     <SidebarProvider>
@@ -150,6 +153,9 @@ export default function MainLayout({
             <h1 className="text-2xl font-bold hidden sm:block">{activePage}</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => openModal('addProduct')}>
+              Add Product
+            </Button>
             <Button size="sm" onClick={() => openModal('newSale')}>
               <ShoppingCart className="mr-2 h-4 w-4" /> New Sale
             </Button>

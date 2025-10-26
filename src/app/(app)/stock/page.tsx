@@ -33,13 +33,13 @@ export default function StockPage({ openModal }: StockViewProps) {
         item.sku.toLowerCase().includes(searchTerm.toLowerCase())
     ) || [];
 
-  const handleDelete = (sku: string) => {
+  const handleDelete = (itemId: string) => {
     if (
       confirm(
         'Are you sure you want to delete this product? This action cannot be undone.'
       )
     ) {
-      deleteStockItem(sku);
+      deleteStockItem(itemId);
       toast({
         title: 'Product Deleted',
         description: 'The product has been removed from your stock.',
@@ -68,6 +68,7 @@ export default function StockPage({ openModal }: StockViewProps) {
                 <TableHead>Product</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
+                 <TableHead className="text-right">Sale Price</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -75,7 +76,7 @@ export default function StockPage({ openModal }: StockViewProps) {
               {filteredStock.length > 0 ? (
                 filteredStock.map((item) => (
                   <TableRow
-                    key={item.sku}
+                    key={item.id}
                     className={
                       item.stock <= item.reorderLevel
                         ? 'bg-destructive/10 hover:bg-destructive/20'
@@ -85,6 +86,7 @@ export default function StockPage({ openModal }: StockViewProps) {
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell>{item.sku}</TableCell>
                     <TableCell className="text-right">{item.stock}</TableCell>
+                     <TableCell className="text-right">₹{item.salePrice.toFixed(2)}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
@@ -97,7 +99,7 @@ export default function StockPage({ openModal }: StockViewProps) {
                         variant="ghost"
                         size="icon"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(item.sku)}
+                        onClick={() => handleDelete(item.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -106,7 +108,7 @@ export default function StockPage({ openModal }: StockViewProps) {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center">
+                  <TableCell colSpan={5} className="text-center">
                     No products found.
                   </TableCell>
                 </TableRow>

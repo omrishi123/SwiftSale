@@ -15,13 +15,12 @@ import { useToast } from '@/hooks/use-toast';
 import {
   useAuth,
   useUser,
-  initiateEmailSignUp,
-  initiateEmailSignIn,
 } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { initialData } from '@/lib/data';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function AuthPage() {
   const { toast } = useToast();
@@ -48,8 +47,8 @@ export default function AuthPage() {
 
     if (isLogin) {
       try {
-        await initiateEmailSignIn(auth, email, password);
-        // onAuthStateChanged will handle redirect
+        await signInWithEmailAndPassword(auth, email, password);
+        // onAuthStateChanged in FirebaseProvider will handle the redirect
       } catch (error: any) {
         toast({
           variant: 'destructive',
@@ -69,21 +68,25 @@ export default function AuthPage() {
         return;
       }
       try {
-        const userCredential = await initiateEmailSignUp(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         if (userCredential && userCredential.user) {
           const userId = userCredential.user.uid;
-          // Create user document
-          await setDoc(doc(firestore, 'users', userId), {});
-          // Create initial settings
-          await setDoc(
-            doc(firestore, `users/${userId}/appData/settings`),
-            initialData.settings
-          );
+          
+          // CRITICAL: Create the parent user document first.
+          const userDocRef = doc(firestore, 'users', userId);
+          await setDoc(userDocRef, { createdAt: new Date().toISOString() });
+
+          // Then, create the initial settings document in the subcollection.
+          const settingsDocRef = doc(firestore, `users/${userId}/appData/settings`);
+          await setDoc(settingsDocRef, initialData.settings);
+
           toast({
             title: 'Signup Successful',
-            description: 'Please log in.',
+            description: 'Your account has been created. Please log in.',
           });
-          setIsLogin(true); // Switch to login view after successful signup
+          setIsLogin(true);
+          setPassword('');
+          setConfirmPassword('');
         }
       } catch (error: any) {
         toast({

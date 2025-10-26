@@ -40,9 +40,9 @@ interface AppContextType {
   appData: AppData;
   isLoaded: boolean;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
-  addStockItem: (item: Omit<StockItem, 'sku'>, quantity: number) => void;
+  addStockItem: (item: Omit<StockItem, 'id' | 'sku'> & {sku: string}, quantity: number) => void;
   updateStockItem: (updatedItem: StockItem) => void;
-  deleteStockItem: (sku: string) => void;
+  deleteStockItem: (itemId: string) => void;
   addSale: (sale: Omit<Sale, 'id' | 'profit'>) => Promise<Sale | null>;
   addCustomer: (
     customer: Omit<Customer, 'id' | 'due'>
@@ -51,7 +51,6 @@ interface AppContextType {
   deleteCustomer: (customerId: string) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   recordPayment: (saleId: string, amount: number) => void;
-  setAppData: React.Dispatch<React.SetStateAction<AppData>>; // Exposed for import
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -99,7 +98,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // We consider the app "loaded" when we have the user and their essential settings.
-    // The other collections can continue to load in the background.
     if (user && !settingsLoading) {
       setIsLoaded(true);
     }
@@ -112,7 +110,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       customers: customers || [],
       sales: sales || [],
       expenses: expenses || [],
-      nextIds: { sale: '', customer: '', expense: '' }, // Not used with Firestore
     };
   }, [settings, stock, customers, sales, expenses]);
 
@@ -133,7 +130,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const docRef = doc(stockCol, existingItem.id);
         updateDocumentNonBlocking(docRef, { stock: existingItem.stock + quantity });
       } else {
-        addDocumentNonBlocking(stockCol, { ...item, stock: quantity });
+        const {id, ...rest} = item;
+        addDocumentNonBlocking(stockCol, { ...rest, stock: quantity });
       }
     },
     [stockCol, stock]
@@ -152,9 +150,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const deleteStockItem = useCallback(
     (itemId: string) => {
       if (!stockCol) return;
-      deleteDocumentNonBlocking(doc(stockCol, itemId));
+      const stockItem = stock?.find(s => s.id === itemId);
+      if (stockItem) {
+        deleteDocumentNonBlocking(doc(stockCol, itemId));
+      }
     },
-    [stockCol]
+    [stockCol, stock]
   );
 
   const addSale = useCallback(
@@ -173,11 +174,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const newSale: Sale = { ...saleData, id: newSaleRef.id, profit };
         batch.set(newSaleRef, newSale);
 
-        saleData.items.forEach((item) => {
-          const stockDocRef = doc(stockCol, item.id);
-          const newStockLevel = item.stock - item.quantity;
+        for (const item of saleData.items) {
+          const stockItem = stock?.find(si => si.sku === item.sku);
+          if (!stockItem) throw new Error(`Stock item with SKU ${item.sku} not found.`);
+          const stockDocRef = doc(stockCol, stockItem.id);
+          const newStockLevel = stockItem.stock - item.quantity;
           batch.update(stockDocRef, { stock: newStockLevel });
-        });
+        }
+
 
         const customerRef = doc(customersCol, saleData.customerId);
         const customer = customers?.find((c) => c.id === saleData.customerId);
@@ -192,7 +196,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         return null;
       }
     },
-    [salesCol, customersCol, stockCol, firestore, customers]
+    [salesCol, customersCol, stockCol, firestore, customers, stock]
   );
 
   const addCustomer = useCallback(
@@ -202,12 +206,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (!customersCol) return null;
       try {
         const newCustomerRef = doc(customersCol);
-        const newCustomer = {
+        const newCustomer: Customer = {
           ...customerData,
           id: newCustomerRef.id,
           due: 0,
         };
-        await setDocumentNonBlocking(newCustomerRef, newCustomer, {});
+        await setDocumentNonBlocking(newCustomerRef, newCustomer);
         return newCustomer;
       } catch (error) {
         console.error('Error adding customer:', error);
@@ -267,15 +271,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     [salesCol, customersCol, firestore, sales, customers]
   );
 
-  // Dummy setAppData for import functionality - a more robust solution would be needed
-  const setAppData = (data: AppData) => {
-    // This is a complex operation with Firestore and is not fully implemented for this MVP.
-    // A full implementation would involve batch writing all the imported data to the user's collections.
-    console.warn(
-      'setAppData from import is not fully implemented for Firestore.'
-    );
-  };
-
   return (
     <AppContext.Provider
       value={{
@@ -291,7 +286,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         deleteCustomer,
         addExpense,
         recordPayment,
-        setAppData,
       }}
     >
       {children}

@@ -20,6 +20,7 @@ import { Sparkles, QrCode } from 'lucide-react';
 import { generateSkuAction } from '@/app/actions';
 import ScannerModal from './ScannerModal';
 import { useToast } from '@/hooks/use-toast';
+import { StockItem } from '@/lib/types';
 
 interface AddProductModalProps {
   isOpen: boolean;
@@ -58,6 +59,7 @@ export default function AddProductModal({
     resolver: zodResolver(productSchema),
     defaultValues: {
       reorderLevel: 5,
+      quantity: 1,
     },
   });
 
@@ -66,21 +68,40 @@ export default function AddProductModal({
     const productName = getValues('name');
     const productCategory = getValues('category') || 'General';
     if (!productName) {
-      alert('Please enter a product name first.');
+      toast({
+        variant: 'destructive',
+        title: 'Product name required',
+        description: 'Please enter a product name to generate an SKU.',
+      });
       setIsGenerating(false);
       return;
     }
-    const sku = await generateSkuAction(productName, productCategory);
-    setValue('sku', sku);
-    setIsGenerating(false);
+    try {
+      const sku = await generateSkuAction(productName, productCategory);
+      setValue('sku', sku);
+    } catch (error) {
+      console.error('Failed to generate SKU', error);
+      toast({
+        variant: 'destructive',
+        title: 'SKU Generation Failed',
+        description:
+          'Could not generate an AI-powered SKU. Please enter one manually.',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const onScan = useCallback(
     (decodedText: string) => {
       setValue('sku', decodedText);
       setIsScannerOpen(false); // Close scanner on successful scan
+      toast({
+        title: 'SKU Scanned',
+        description: `SKU set to ${decodedText}`,
+      });
     },
-    [setValue]
+    [setValue, toast]
   );
 
   const handleScanSku = useCallback(() => {
@@ -89,7 +110,7 @@ export default function AddProductModal({
 
   const onSubmit: SubmitHandler<ProductFormData> = (data) => {
     const { quantity, ...productData } = data;
-    addStockItem(productData, quantity);
+    addStockItem(productData as Omit<StockItem, 'id'>, quantity);
     toast({
       title: 'Product Added',
       description: `${quantity} unit(s) of ${data.name} have been added to stock.`,
@@ -106,7 +127,7 @@ export default function AddProductModal({
             <DialogTitle>Add New Product / Stock</DialogTitle>
             <DialogDescription>
               Add a new product to your inventory or increase stock for an
-              existing one.
+              existing one by SKU.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

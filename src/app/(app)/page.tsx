@@ -33,7 +33,8 @@ export default function DashboardPage({ openModal }: DashboardViewProps) {
   const todaysSales = appData.sales.filter(
     (s) => new Date(s.date).toISOString().split('T')[0] === today
   );
-  const todaysExpenses = appData.expenses.filter((e) => e.date === today);
+  const todaysExpenses = appData.expenses.filter((e) => new Date(e.date).toISOString().split('T')[0] === today);
+
 
   const todayRevenue = todaysSales.reduce(
     (sum, sale) => sum + sale.grandTotal,

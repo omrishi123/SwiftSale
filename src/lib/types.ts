@@ -17,13 +17,12 @@ export interface Customer {
   due: number;
 }
 
-export interface SaleItem extends Omit<StockItem, 'id' | 'stock' | 'reorderLevel'> {
-  id: string; // This will be the stock item's ID
+export interface SaleItem extends Omit<StockItem, 'stock' | 'reorderLevel'> {
   quantity: number;
 }
 
 export interface Sale {
-  id: string; // Document ID from Firestore
+  id:string; // Document ID from Firestore
   customerId: string;
   items: SaleItem[];
   profit: number;
@@ -60,9 +59,4 @@ export interface AppData {
   customers: Customer[];
   sales: Sale[];
   expenses: Expense[];
-  nextIds: {
-    sale: string;
-    customer: string;
-    expense: string;
-  };
 }
