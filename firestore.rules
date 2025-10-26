@@ -1,120 +1,118 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for shops and their associated data (products, customers, sales, expenses). Each shop is owned by a user, identified by their Firebase Auth UID. All data is nested under /shops/{shopId}, where shopId matches the user's UID.
- *
- * Data Structure:
- * - /shops/{shopId}: Shop information, where shopId is the owner's UID.
- * - /shops/{shopId}/products/{productId}: Products belonging to the shop.
- * - /shops/{shopId}/customers/{customerId}: Customers of the shop.
- * - /shops/{shopId}/sales/{saleId}: Sales transactions for the shop.
- * - /shops/{shopId}/expenses/{expenseId}: Expenses for the shop.
- *
- * Key Security Decisions:
- * - Only the owner of a shop can create, update, or delete shop data (products, customers, sales, expenses).
- * - Listing of shop data is restricted to the owner only.
- * - No public access is granted to any data.
- * - Data consistency is enforced by ensuring that the shopId in the path matches the owner's UID.
+ * @core_philosophy This ruleset enforces a strict user-ownership model for shop data. Each shop is owned by a specific user, and only that user has full access to the shop's data, including products, customers, sales, and expenses.
+ * @data_structure The data is organized hierarchically under /shops/{shopId}, where shopId corresponds to the Firebase Auth UID of the shop owner.  All data related to a shop (products, customers, sales, expenses) are stored as subcollections under this path.
+ * @key_security_decisions Direct access to the /shops/{shopId} document is restricted to the shop owner (i.e., the user with the matching UID). All write operations on shop-related data (products, customers, sales, expenses) must be performed by the shop owner. List operations are allowed only within a user's own shop data.
+ * @denormalization_for_authorization The shopId is implicitly known from the path, avoiding the need for 'get()' calls to verify shop ownership. The shopId is equivalent to the Firebase Auth UID.
+ * @structural_segregation All shop-related data is stored under the /shops/{shopId} path, ensuring clear segregation and simplified security rules.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
+     * @description Checks if the request is made by an authenticated user.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the authenticated user's UID matches the provided userId.
+     * @description Checks if the authenticated user ID matches the provided user ID.
      */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function isOwner(shopId) {
+      return isSignedIn() && request.auth.uid == shopId;
     }
 
     /**
-     * @description Checks if the user is the owner and the resource exists.
+     * @description Checks if the authenticated user is the owner of the existing document.
      */
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+    function isExistingOwner(shopId) {
+      return isSignedIn() && request.auth.uid == shopId && resource != null;
     }
-    
+
     /**
-     * @description Enforces owner-only access to shop data.
+     * @description Rules for shop information.
      * @path /shops/{shopId}
-     * @allow (create) User with UID 'user_abc' can create a shop if shopId == user_abc.
-     * @deny (create) User with UID 'user_xyz' cannot create a shop with shopId == user_abc.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create, update) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can create their shop.
+     * @deny (create, update) User 'anotherUserId' cannot create shop for user 'dWy9zMH77BNuXRGvn7kLx95vW6l2'.
+     * @principle Enforces document ownership for writes.
      */
     match /shops/{shopId} {
       allow get: if isOwner(shopId);
-      allow list: if false; //Prevent listing all shops.
-
+      allow list: if false;
       allow create: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
     }
 
     /**
-     * @description Enforces owner-only access to product data.
+     * @description Rules for product inventory under a specific shop.
      * @path /shops/{shopId}/products/{productId}
-     * @allow (create) User with UID 'user_abc' can create a product if shopId == user_abc.
-     * @deny (create) User with UID 'user_xyz' cannot create a product under shop 'user_abc'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can create a product in their shop.
+     * @allow (update) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can update their product.
+     * @allow (get) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can get their product.
+     * @allow (list) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can list their products.
+     * @deny (create) User 'anotherUserId' cannot create a product for shop 'dWy9zMH77BNuXRGvn7kLx95vW6l2'.
+     * @principle Enforces document ownership for writes.
      */
     match /shops/{shopId}/products/{productId} {
       allow get: if isOwner(shopId);
       allow list: if isOwner(shopId);
-
       allow create: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
     }
 
     /**
-     * @description Enforces owner-only access to customer data.
+     * @description Rules for customer information under a specific shop.
      * @path /shops/{shopId}/customers/{customerId}
-     * @allow (create) User with UID 'user_abc' can create a customer if shopId == user_abc.
-     * @deny (create) User with UID 'user_xyz' cannot create a customer under shop 'user_abc'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can create a customer in their shop.
+     * @allow (update) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can update their customer.
+     * @allow (get) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can get their customer.
+     * @allow (list) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can list their customers.
+     * @deny (create) User 'anotherUserId' cannot create a customer for shop 'dWy9zMH77BNuXRGvn7kLx95vW6l2'.
+     * @principle Enforces document ownership for writes.
      */
     match /shops/{shopId}/customers/{customerId} {
       allow get: if isOwner(shopId);
       allow list: if isOwner(shopId);
-
       allow create: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
     }
 
     /**
-     * @description Enforces owner-only access to sales data.
+     * @description Rules for sales transactions under a specific shop.
      * @path /shops/{shopId}/sales/{saleId}
-     * @allow (create) User with UID 'user_abc' can create a sale if shopId == user_abc.
-     * @deny (create) User with UID 'user_xyz' cannot create a sale under shop 'user_abc'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can create a sale in their shop.
+     * @allow (update) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can update their sale.
+     * @allow (get) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can get their sale.
+     * @allow (list) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can list their sales.
+     * @deny (create) User 'anotherUserId' cannot create a sale for shop 'dWy9zMH77BNuXRGvn7kLx95vW6l2'.
+     * @principle Enforces document ownership for writes.
      */
     match /shops/{shopId}/sales/{saleId} {
       allow get: if isOwner(shopId);
       allow list: if isOwner(shopId);
-
       allow create: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
     }
 
     /**
-     * @description Enforces owner-only access to expense data.
+     * @description Rules for expense details under a specific shop.
      * @path /shops/{shopId}/expenses/{expenseId}
-     * @allow (create) User with UID 'user_abc' can create an expense if shopId == user_abc.
-     * @deny (create) User with UID 'user_xyz' cannot create an expense under shop 'user_abc'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can create an expense in their shop.
+     * @allow (update) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can update their expense.
+     * @allow (get) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can get their expense.
+     * @allow (list) User 'dWy9zMH77BNuXRGvn7kLx95vW6l2' can list their expenses.
+     * @deny (create) User 'anotherUserId' cannot create an expense for shop 'dWy9zMH77BNuXRGvn7kLx95vW6l2'.
+     * @principle Enforces document ownership for writes.
      */
     match /shops/{shopId}/expenses/{expenseId} {
       allow get: if isOwner(shopId);
       allow list: if isOwner(shopId);
-
       allow create: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
