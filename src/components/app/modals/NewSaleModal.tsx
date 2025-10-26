@@ -25,22 +25,21 @@ import { Separator } from '@/components/ui/separator';
 import { QrCode, Plus, Minus, Trash2 } from 'lucide-react';
 import type { Customer, SaleItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import type { ModalType } from '../MainLayout';
 import ScannerModal from './ScannerModal';
 import { useRouter } from 'next/navigation';
+import { useModal } from '@/contexts/ModalContext';
 
 interface NewSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  openModal: (type: ModalType, data?: any) => void;
 }
 
 export default function NewSaleModal({
   isOpen,
   onClose,
-  openModal,
 }: NewSaleModalProps) {
   const { appData, addSale, addCustomer } = useAppData();
+  const { openModal } = useModal();
   const router = useRouter();
   const { toast } = useToast();
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);

@@ -1,13 +1,7 @@
-import type { Metadata } from 'next';
+
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { AppProvider } from '@/contexts/AppContext';
-import { FirebaseClientProvider } from '@/firebase';
-
-export const metadata: Metadata = {
-  title: 'SwiftSale Pro',
-  description: 'Your complete business management solution.',
-};
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export default function RootLayout({
   children,
@@ -17,6 +11,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        <title>SwiftSale Pro</title>
+        <meta
+          name="description"
+          content="Your complete business management solution."
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -29,12 +28,8 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <FirebaseClientProvider>
-          <AppProvider>
-            {children}
-            <Toaster />
-          </AppProvider>
-        </FirebaseClientProvider>
+        <FirebaseClientProvider>{children}</FirebaseClientProvider>
+        <Toaster />
       </body>
     </html>
   );

@@ -97,10 +97,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (user && !settingsLoading) {
+    if (user && !settingsLoading && !stockLoading && !customersLoading && !salesLoading && !expensesLoading) {
       setIsLoaded(true);
     }
-  }, [user, settingsLoading]);
+  }, [user, settingsLoading, stockLoading, customersLoading, salesLoading, expensesLoading]);
 
   const appData = useMemo<AppData>(() => {
     return {
@@ -115,8 +115,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const updateSettings = useCallback(
     (newSettings: Partial<AppSettings>) => {
       if (settingsRef) {
-        // Use set with merge:true to create the document if it doesn't exist,
-        // or update it if it does. This handles both new and existing users.
         setDocumentNonBlocking(settingsRef, newSettings, { merge: true });
       }
     },

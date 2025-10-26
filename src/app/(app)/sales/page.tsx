@@ -13,15 +13,10 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Printer } from 'lucide-react';
-import type { ModalType } from '@/components/app/MainLayout';
 import { Sale } from '@/lib/types';
 import Link from 'next/link';
 
-interface SalesViewProps {
-  openModal: (type: ModalType, data?: any) => void;
-}
-
-export default function SalesPage({ openModal }: SalesViewProps) {
+export default function SalesPage() {
   const { appData } = useAppData();
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -13,7 +13,6 @@ import {
   Users,
   Wallet,
   LogOut,
-  User as UserIcon,
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -40,14 +39,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 
-import CustomersPage from '@/app/(app)/customers/page';
-import ExpensesPage from '@/app/(app)/expenses/page';
-import ReportsPage from '@/app/(app)/reports/page';
-import SalesPage from '@/app/(app)/sales/page';
-import SettingsPage from '@/app/(app)/settings/page';
-import StockPage from '@/app/(app)/stock/page';
-import DashboardPage from '@/app/(app)/page';
-
 import NewSaleModal from '@/components/app/modals/NewSaleModal';
 import AddProductModal from '@/components/app/modals/AddProductModal';
 import AddExpenseModal from '@/components/app/modals/AddExpenseModal';
@@ -57,19 +48,8 @@ import RecordPaymentModal from '@/components/app/modals/RecordPaymentModal';
 import { ThemeToggle } from './ThemeToggle';
 import type { StockItem, Customer, Sale } from '@/lib/types';
 import type { User } from 'firebase/auth';
+import { useModal } from '@/contexts/ModalContext';
 
-export type ModalType =
-  | 'newSale'
-  | 'addProduct'
-  | 'addExpense'
-  | 'editProduct'
-  | 'editCustomer'
-  | 'recordPayment';
-
-export interface ModalState {
-  type: ModalType | null;
-  data?: any;
-}
 
 export default function MainLayout({
   children,
@@ -78,22 +58,15 @@ export default function MainLayout({
   children: React.ReactNode;
   user: User | null;
 }) {
-  const { appData, isLoaded } = useAppData();
+  const { appData } = useAppData();
+  const { modalState, openModal, closeModal } = useModal();
   const auth = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [modalState, setModalState] = useState<ModalState>({
-    type: null,
-    data: null,
-  });
-
-  const openModal = (type: ModalType, data?: any) =>
-    setModalState({ type, data });
-  const closeModal = () => setModalState({ type: null, data: null });
 
   const navItems = useMemo(
     () => [
-      { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/stock', label: 'Stock', icon: Package },
       { href: '/sales', label: 'Sales', icon: ReceiptText },
       { href: '/customers', label: 'Customers', icon: Users },
@@ -107,53 +80,7 @@ export default function MainLayout({
 
 
   const activePage =
-    [...navItems, settingsNav].find((item) => item.href === pathname)?.label || 'Dashboard';
-
-  const pageContent = React.useMemo(() => {
-    // Check for loading state first to ensure hooks are called unconditionally
-    if (!isLoaded || !user) {
-      return (
-        <div className="flex h-full w-full items-center justify-center">
-          <div className="text-xl font-semibold">Loading SwiftSale Pro...</div>
-        </div>
-      );
-    }
-
-    switch (pathname) {
-      case '/customers':
-        return <CustomersPage openModal={openModal} />;
-      case '/expenses':
-        return <ExpensesPage />;
-      case '/reports':
-        return <ReportsPage />;
-      case '/sales':
-        return <SalesPage openModal={openModal} />;
-      case '/settings':
-        return <SettingsPage />;
-      case '/stock':
-        return <StockPage openModal={openModal} />;
-      case '/':
-        return <DashboardPage openModal={openModal} />;
-      default:
-        // This will render the content for routes like /sales/[saleId]
-        // We pass the user prop down to children that might need it
-        return React.Children.map(children, (child) => {
-          if (React.isValidElement(child)) {
-            // @ts-ignore
-            return React.cloneElement(child, { user });
-          }
-          return child;
-        });
-    }
-  }, [pathname, openModal, children, isLoaded, user]);
-
-  if (!isLoaded || !user) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="text-xl font-semibold">Loading SwiftSale Pro...</div>
-      </div>
-    );
-  }
+    [...navItems, settingsNav].find((item) => pathname.startsWith(item.href))?.label || 'Dashboard';
 
   const shopNameInitial = appData.settings?.shopName
     ? appData.settings.shopName.charAt(0).toUpperCase()
@@ -173,7 +100,7 @@ export default function MainLayout({
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href}>
                   <SidebarMenuButton
-                    isActive={pathname === item.href}
+                    isActive={pathname.startsWith(item.href)}
                     tooltip={{ children: item.label, side: 'right' }}
                     className="justify-start"
                   >
@@ -190,7 +117,7 @@ export default function MainLayout({
                  <SidebarMenuItem>
                     <Link href={settingsNav.href}>
                     <SidebarMenuButton
-                        isActive={pathname === settingsNav.href}
+                        isActive={pathname.startsWith(settingsNav.href)}
                         tooltip={{ children: settingsNav.label, side: 'right' }}
                         className="justify-start mt-auto"
                     >
@@ -245,14 +172,13 @@ export default function MainLayout({
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-6 lg:p-8">{pageContent}</main>
+        <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
       </SidebarInset>
 
       {/* Modals */}
       <NewSaleModal
         isOpen={modalState.type === 'newSale'}
         onClose={closeModal}
-        openModal={openModal}
       />
       <AddProductModal
         isOpen={modalState.type === 'addProduct'}

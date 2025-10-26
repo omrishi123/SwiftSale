@@ -13,16 +13,13 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CreditCard, Eye, FilePenLine, Trash2 } from 'lucide-react';
-import type { ModalType } from '@/components/app/MainLayout';
 import type { Customer, Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { useModal } from '@/contexts/ModalContext';
 
-interface CustomersViewProps {
-  openModal: (type: ModalType, data?: any) => void;
-}
-
-export default function CustomersPage({ openModal }: CustomersViewProps) {
+export default function CustomersPage() {
   const { appData, deleteCustomer } = useAppData();
+  const { openModal } = useModal();
   const { toast } = useToast();
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null

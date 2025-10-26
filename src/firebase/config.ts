@@ -1,9 +1,11 @@
+// This file is for reference purposes.
+// In production, your Firebase configuration will be sourced from environment variables.
+
 export const firebaseConfig = {
-  "projectId": "studio-2114747616-94c76",
-  "appId": "1:1089003850899:web:2be6eabe54eda77abc9166",
-  "storageBucket": "studio-2114747616-94c76.appspot.com",
-  "apiKey": "AIzaSyCHBaaMP1lRmarkUVzktAcfpLaWAHvsZdI",
-  "authDomain": "studio-2114747616-94c76.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "1089003850899"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };

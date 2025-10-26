@@ -12,15 +12,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, IndianRupee } from 'lucide-react';
-import type { ModalType } from '@/components/app/MainLayout';
+import { AlertTriangle } from 'lucide-react';
+import { useModal } from '@/contexts/ModalContext';
 
-interface DashboardViewProps {
-  openModal: (type: ModalType, data?: any) => void;
-}
-
-export default function DashboardPage({ openModal }: DashboardViewProps) {
+export default function DashboardPage() {
   const { appData, isLoaded } = useAppData();
+  const { openModal } = useModal();
 
   if (!isLoaded) {
     return (

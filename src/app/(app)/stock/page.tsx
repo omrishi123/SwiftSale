@@ -14,15 +14,12 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FilePenLine, Trash2 } from 'lucide-react';
-import type { ModalType } from '@/components/app/MainLayout';
 import { useToast } from '@/hooks/use-toast';
+import { useModal } from '@/contexts/ModalContext';
 
-interface StockViewProps {
-  openModal: (type: ModalType, data?: any) => void;
-}
-
-export default function StockPage({ openModal }: StockViewProps) {
+export default function StockPage() {
   const { appData, deleteStockItem } = useAppData();
+  const { openModal } = useModal();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
 
