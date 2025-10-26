@@ -1,4 +1,5 @@
 export interface StockItem {
+  id: string; // Document ID from Firestore
   sku: string;
   name: string;
   costPrice: number;
@@ -9,20 +10,21 @@ export interface StockItem {
 }
 
 export interface Customer {
-  id: number;
+  id: string; // Document ID from Firestore
   name: string;
   phone: string;
   address: string;
   due: number;
 }
 
-export interface SaleItem extends StockItem {
+export interface SaleItem extends Omit<StockItem, 'id' | 'stock' | 'reorderLevel'> {
+  id: string; // This will be the stock item's ID
   quantity: number;
 }
 
 export interface Sale {
-  id: number;
-  customerId: number;
+  id: string; // Document ID from Firestore
+  customerId: string;
   items: SaleItem[];
   profit: number;
   subtotal: number;
@@ -37,7 +39,7 @@ export interface Sale {
 }
 
 export interface Expense {
-  id: number;
+  id: string; // Document ID from Firestore
   date: string; // YYYY-MM-DD
   title: string;
   category: string;
@@ -53,14 +55,14 @@ export interface AppSettings {
 }
 
 export interface AppData {
-  settings: AppSettings;
+  settings: AppSettings | null;
   stock: StockItem[];
   customers: Customer[];
   sales: Sale[];
   expenses: Expense[];
   nextIds: {
-    sale: number;
-    customer: number;
-    expense: number;
+    sale: string;
+    customer: string;
+    expense: string;
   };
 }

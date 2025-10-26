@@ -1,15 +1,50 @@
 {
   "entities": {
+    "Shop": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Shop",
+      "type": "object",
+      "description": "Represents the shop's information and settings.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the shop entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the shop."
+        },
+        "gstin": {
+          "type": "string",
+          "description": "GSTIN (Goods and Services Tax Identification Number) of the shop."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the shop."
+        },
+        "address": {
+          "type": "string",
+          "description": "Address of the shop."
+        },
+        "defaultTaxRate": {
+          "type": "number",
+          "description": "Default GST (Goods and Services Tax) rate applied in the shop, as a percentage."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
     "Product": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Product",
       "type": "object",
-      "description": "Represents a product in the inventory.",
+      "description": "Represents a product in the stock.",
       "properties": {
         "sku": {
           "type": "string",
-          "description": "Unique Stock Keeping Unit identifier for the product. Serves as the primary key.",
-          "format": "string"
+          "description": "Stock Keeping Unit - Unique identifier for the product."
         },
         "name": {
           "type": "string",
@@ -17,19 +52,19 @@
         },
         "costPrice": {
           "type": "number",
-          "description": "The cost price of the product."
+          "description": "Cost price of the product."
         },
         "salePrice": {
           "type": "number",
-          "description": "The price at which the product is sold."
+          "description": "Sale price of the product."
         },
         "stock": {
           "type": "number",
-          "description": "The current quantity of the product in stock."
+          "description": "Current stock quantity of the product."
         },
         "reorderLevel": {
           "type": "number",
-          "description": "The minimum stock level at which a reorder should be triggered."
+          "description": "Reorder level for the product - the minimum stock level at which a reorder should be triggered."
         }
       },
       "required": [
@@ -49,7 +84,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the customer. Serves as the primary key."
+          "description": "Unique identifier for the customer."
         },
         "name": {
           "type": "string",
@@ -65,13 +100,12 @@
         },
         "due": {
           "type": "number",
-          "description": "Outstanding balance owed by the customer."
+          "description": "Amount due from the customer."
         }
       },
       "required": [
         "id",
-        "name",
-        "due"
+        "name"
       ]
     },
     "Sale": {
@@ -82,7 +116,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the sale. Serves as the primary key."
+          "description": "Unique identifier for the sale."
         },
         "customerId": {
           "type": "string",
@@ -90,50 +124,50 @@
         },
         "items": {
           "type": "array",
-          "description": "Array of items included in the sale.",
+          "description": "List of items sold in this sale.",
           "items": {
             "type": "string"
           }
         },
         "profit": {
           "type": "number",
-          "description": "The profit made from the sale."
+          "description": "Total profit from the sale."
         },
         "subtotal": {
           "type": "number",
-          "description": "The total value of the sale before discount and tax."
+          "description": "Subtotal amount of the sale (before discount and tax)."
         },
         "discount": {
           "type": "number",
-          "description": "The discount applied to the sale."
+          "description": "Discount amount applied to the sale."
         },
         "taxRate": {
           "type": "number",
-          "description": "The tax rate applied to the sale."
+          "description": "Tax rate applied to the sale."
         },
         "gstAmount": {
           "type": "number",
-          "description": "The GST amount for the sale."
+          "description": "GST (Goods and Services Tax) amount applied to the sale."
         },
         "grandTotal": {
           "type": "number",
-          "description": "The total amount of the sale after discount and tax."
+          "description": "Grand total amount of the sale (after discount and tax)."
         },
         "amountPaid": {
           "type": "number",
-          "description": "The amount paid by the customer."
+          "description": "Amount paid by the customer for the sale."
         },
         "due": {
           "type": "number",
-          "description": "The remaining balance owed by the customer for the sale."
+          "description": "Amount due from the customer for the sale."
         },
         "paymentMode": {
           "type": "string",
-          "description": "The method of payment used for the sale."
+          "description": "Payment mode used for the sale (e.g., Cash, Card, UPI)."
         },
         "date": {
           "type": "string",
-          "description": "The date of the sale.",
+          "description": "Date of the sale.",
           "format": "date-time"
         }
       },
@@ -161,24 +195,24 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the expense. Serves as the primary key."
+          "description": "Unique identifier for the expense."
         },
         "date": {
           "type": "string",
-          "description": "The date the expense was incurred.",
+          "description": "Date of the expense.",
           "format": "date-time"
         },
         "title": {
           "type": "string",
-          "description": "A brief description of the expense."
+          "description": "Title of the expense."
         },
         "category": {
           "type": "string",
-          "description": "The category the expense belongs to."
+          "description": "Category of the expense."
         },
         "amount": {
           "type": "number",
-          "description": "The amount of the expense."
+          "description": "Amount of the expense."
         }
       },
       "required": [
@@ -187,71 +221,6 @@
         "title",
         "category",
         "amount"
-      ]
-    },
-    "Setting": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Setting",
-      "type": "object",
-      "description": "Represents application settings.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the setting. Serves as the primary key."
-        },
-        "shopName": {
-          "type": "string",
-          "description": "Name of the shop."
-        },
-        "shopGstin": {
-          "type": "string",
-          "description": "GSTIN of the shop."
-        },
-        "shopPhone": {
-          "type": "string",
-          "description": "Phone number of the shop."
-        },
-        "shopAddress": {
-          "type": "string",
-          "description": "Address of the shop."
-        },
-        "defaultTax": {
-          "type": "number",
-          "description": "The default tax rate."
-        }
-      },
-      "required": [
-        "id"
-      ]
-    },
-    "SaleItem": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "SaleItem",
-      "type": "object",
-      "description": "Represents an item within a sale.",
-      "properties": {
-        "saleId": {
-          "type": "string",
-          "description": "Reference to Sale. (Relationship: Sale 1:N SaleItem)"
-        },
-        "productSku": {
-          "type": "string",
-          "description": "Reference to Product. (Relationship: Product 1:N SaleItem)"
-        },
-        "quantity": {
-          "type": "number",
-          "description": "Quantity of the product sold in this sale item."
-        },
-        "salePrice": {
-          "type": "number",
-          "description": "The price at which the product was sold in this sale."
-        }
-      },
-      "required": [
-        "saleId",
-        "productSku",
-        "quantity",
-        "salePrice"
       ]
     }
   },
@@ -264,90 +233,102 @@
   "firestore": {
     "structure": [
       {
-        "path": "/products/{productSku}",
+        "path": "/shops/{shopId}",
+        "definition": {
+          "entityName": "Shop",
+          "schema": {
+            "$ref": "#/backend/entities/Shop"
+          },
+          "description": "Stores shop information.  ShopId is the Firebase Auth UID of the shop owner.",
+          "params": [
+            {
+              "name": "shopId",
+              "description": "The Firebase Auth UID of the shop owner."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/shops/{shopId}/products/{productId}",
         "definition": {
           "entityName": "Product",
           "schema": {
             "$ref": "#/backend/entities/Product"
           },
-          "description": "Stores product information using the product SKU as the document ID.",
+          "description": "Stores product information for a specific shop.",
           "params": [
             {
-              "name": "productSku",
-              "description": "The unique SKU of the product.  Serves as the document ID."
+              "name": "shopId",
+              "description": "The ID of the shop."
+            },
+            {
+              "name": "productId",
+              "description": "The unique identifier for the product."
             }
           ]
         }
       },
       {
-        "path": "/customers/{customerId}",
+        "path": "/shops/{shopId}/customers/{customerId}",
         "definition": {
           "entityName": "Customer",
           "schema": {
             "$ref": "#/backend/entities/Customer"
           },
-          "description": "Stores customer information. Each customer document is uniquely identified by customerId.",
+          "description": "Stores customer information for a specific shop.",
           "params": [
             {
+              "name": "shopId",
+              "description": "The ID of the shop."
+            },
+            {
               "name": "customerId",
-              "description": "The unique ID of the customer."
+              "description": "The unique identifier for the customer."
             }
           ]
         }
       },
       {
-        "path": "/customers/{customerId}/sales/{saleId}",
+        "path": "/shops/{shopId}/sales/{saleId}",
         "definition": {
           "entityName": "Sale",
           "schema": {
             "$ref": "#/backend/entities/Sale"
           },
-          "description": "Stores sales transactions associated with a specific customer. Includes denormalized 'customerId' for authorization independence.",
+          "description": "Stores sales transaction data for a specific shop.",
           "params": [
             {
-              "name": "customerId",
-              "description": "The unique ID of the customer."
+              "name": "shopId",
+              "description": "The ID of the shop."
             },
             {
               "name": "saleId",
-              "description": "The unique ID of the sale transaction."
+              "description": "The unique identifier for the sale."
             }
           ]
         }
       },
       {
-        "path": "/expenses/{expenseId}",
+        "path": "/shops/{shopId}/expenses/{expenseId}",
         "definition": {
           "entityName": "Expense",
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense records.  Each expense document is uniquely identified by expenseId.",
+          "description": "Stores expense data for a specific shop.",
           "params": [
+            {
+              "name": "shopId",
+              "description": "The ID of the shop."
+            },
             {
               "name": "expenseId",
-              "description": "The unique ID of the expense."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/settings/{settingId}",
-        "definition": {
-          "entityName": "Setting",
-          "schema": {
-            "$ref": "#/backend/entities/Setting"
-          },
-          "description": "Stores application settings. There will only be one document in this collection.",
-          "params": [
-            {
-              "name": "settingId",
-              "description": "Id of the setting document. Should be a constant value."
+              "description": "The unique identifier for the expense."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to provide a secure, scalable, and easily maintainable database for the SwiftSale Pro application. It prioritizes authorization independence to ensure robust security rules and atomic operations.  The structure employs structural segregation to maintain a homogeneous security posture within collections, simplifying security rule design and preventing accidental exposure of sensitive data.  Access modeling follows consistent patterns, utilizing path-based ownership for private user data and membership maps for collaborative scenarios where applicable.\n\n**Authorization Independence and QAPs:**\n\n*   **Customers:** The `sales` subcollection under each customer denormalizes the `customerId` from the parent `Customer` document into each `Sale` document. This enables direct querying and listing of sales associated with a specific customer without needing to `get()` the Customer document in rules, achieving authorization independence.  This directly supports the QAP for listing sales securely.\n\n*   **Products:** The `products` collection stores all product-related data. Since products are not user-specific, this segregation simplifies management and ensures a consistent security posture for all product documents.  Product SKUs are unique and serve as document IDs.\n\n*   **Settings:** Application settings are stored in a single `settings` document, which does not require granular access control. This is suitable for centralized configuration and management.\n\n*   **Expenses:** Expenses are managed at the root level and secured at the application level. Given the user auth context is sufficient to secure the entire `expenses` collection.\n\n*   **Sales:** Sales documents are stored as subcollections of `customers`, containing details about each sale. The `customerId` is denormalized into the `Sale` document to enable rules to validate write access using just the `request.auth.uid`.\n\nThis design adheres to the core principles of authorization independence, clarity of intent, DBAC, and QAPs, resulting in a secure and efficient data structure for the application."
+    "reasoning": "The Firestore structure is designed to be secure, scalable, and easily debuggable, following the core design principles and strategy mandates. It emphasizes authorization independence by denormalizing data to avoid hierarchical authorization dependencies. The structure segregates data based on security posture, using path-based ownership for private user data and standardizing on membership maps for collaborative data.  Explicit state modeling and predictable schema conventions further enhance clarity. This design supports secure list operations (QAPs) by ensuring that each collection has a homogeneous security posture, meaning rules are not filters.\n\n**Authorization Independence & Data Denormalization:**\nThe structure achieves authorization independence by avoiding `get()` calls in security rules. For instance, Shop-owned entities (Products, Sales, Expenses) are stored as subcollections under the `/shops/{shopId}` path. The shop ID is inherently known from the path itself. No `get()` calls are needed to verify shop ownership. \n\n**QAPs (Rules are not Filters):**\nEach top-level collection and subcollection has a clear, homogeneous security profile. This segregation prevents the need to filter data based on authorization rules, ensuring efficient and secure `list` operations.\n\n**Shop Settings:** Shop details are stored at `/shops/{shopId}`. This allows easy querying for shop information using the shop ID.\n\n**Products:** Products are stored in `/shops/{shopId}/products/{productId}`. This structure ensures that products are always associated with a shop, simplifying data access and security rules.\n\n**Customers:** Customers are stored in `/shops/{shopId}/customers/{customerId}`. This structure ensures that customers are always associated with a shop, simplifying data access and security rules.\n\n**Sales:** Sales data is stored in `/shops/{shopId}/sales/{saleId}`. The `saleId` acts as the unique identifier for each sale. Storing sales under the shop ensures easy querying of all sales for a given shop.\n\n**Expenses:** Expenses are stored in `/shops/{shopId}/expenses/{expenseId}`. This allows for efficient querying of expenses for a specific shop."
   }
 }

@@ -1,198 +1,299 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import type { AppData, AppSettings, Customer, Expense, Sale, StockItem } from '@/lib/types';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+  useMemo,
+} from 'react';
+import type {
+  AppData,
+  AppSettings,
+  Customer,
+  Expense,
+  Sale,
+  StockItem,
+} from '@/lib/types';
+import {
+  useUser,
+  useFirestore,
+  useDoc,
+  useCollection,
+  useMemoFirebase,
+  setDocumentNonBlocking,
+  addDocumentNonBlocking,
+  deleteDocumentNonBlocking,
+  updateDocumentNonBlocking,
+} from '@/firebase';
+import {
+  collection,
+  doc,
+  writeBatch,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { initialData } from '@/lib/data';
 
 interface AppContextType {
   appData: AppData;
-  setAppData: React.Dispatch<React.SetStateAction<AppData>>;
   isLoaded: boolean;
-  updateSettings: (newSettings: AppSettings) => void;
-  addStockItem: (item: StockItem, quantity: number) => void;
+  updateSettings: (newSettings: Partial<AppSettings>) => void;
+  addStockItem: (item: Omit<StockItem, 'sku'>, quantity: number) => void;
   updateStockItem: (updatedItem: StockItem) => void;
   deleteStockItem: (sku: string) => void;
-  addSale: (sale: Omit<Sale, 'id' | 'profit'>) => Sale;
-  addCustomer: (customer: Omit<Customer, 'id' | 'due'>) => Customer;
+  addSale: (sale: Omit<Sale, 'id' | 'profit'>) => Promise<Sale | null>;
+  addCustomer: (
+    customer: Omit<Customer, 'id' | 'due'>
+  ) => Promise<Customer | null>;
   updateCustomer: (updatedCustomer: Omit<Customer, 'due'>) => void;
-  deleteCustomer: (customerId: number) => boolean;
+  deleteCustomer: (customerId: string) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
-  recordPayment: (saleId: number, amount: number) => void;
+  recordPayment: (saleId: string, amount: number) => void;
+  setAppData: React.Dispatch<React.SetStateAction<AppData>>; // Exposed for import
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [appData, setAppData] = useState<AppData>(initialData);
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const settingsRef = useMemoFirebase(
+    () => (user ? doc(firestore, `users/${user.uid}/appData/settings`) : null),
+    [firestore, user]
+  );
+  const { data: settings, isLoading: settingsLoading } =
+    useDoc<AppSettings>(settingsRef);
+
+  const stockCol = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/stock`) : null),
+    [firestore, user]
+  );
+  const { data: stock, isLoading: stockLoading } =
+    useCollection<StockItem>(stockCol);
+
+  const customersCol = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/customers`) : null),
+    [firestore, user]
+  );
+  const { data: customers, isLoading: customersLoading } =
+    useCollection<Customer>(customersCol);
+
+  const salesCol = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/sales`) : null),
+    [firestore, user]
+  );
+  const { data: sales, isLoading: salesLoading } =
+    useCollection<Sale>(salesCol);
+
+  const expensesCol = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/expenses`) : null),
+    [firestore, user]
+  );
+  const { data: expenses, isLoading: expensesLoading } =
+    useCollection<Expense>(expensesCol);
+
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const savedData = localStorage.getItem('swiftSaleProData');
-      if (savedData) {
-        setAppData(JSON.parse(savedData));
-      }
-    } catch (error) {
-      console.error("Failed to load data from localStorage", error);
-      setAppData(initialData);
+    // We consider the app "loaded" when we have the user and their essential settings.
+    // The other collections can continue to load in the background.
+    if (user && !settingsLoading) {
+      setIsLoaded(true);
     }
-    setIsLoaded(true);
-  }, []);
+  }, [user, settingsLoading]);
 
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem('swiftSaleProData', JSON.stringify(appData));
-      } catch (error) {
-        console.error("Failed to save data to localStorage", error);
+  const appData = useMemo<AppData>(() => {
+    return {
+      settings: settings || initialData.settings,
+      stock: stock || [],
+      customers: customers || [],
+      sales: sales || [],
+      expenses: expenses || [],
+      nextIds: { sale: '', customer: '', expense: '' }, // Not used with Firestore
+    };
+  }, [settings, stock, customers, sales, expenses]);
+
+  const updateSettings = useCallback(
+    (newSettings: Partial<AppSettings>) => {
+      if (settingsRef) {
+        updateDocumentNonBlocking(settingsRef, newSettings);
       }
-    }
-  }, [appData, isLoaded]);
+    },
+    [settingsRef]
+  );
 
-  const updateSettings = useCallback((newSettings: AppSettings) => {
-    setAppData(prev => ({ ...prev, settings: newSettings }));
-  }, []);
-  
-  const addStockItem = useCallback((item: StockItem, quantity: number) => {
-    setAppData(prev => {
-      const existingItem = prev.stock.find(p => p.sku === item.sku);
+  const addStockItem = useCallback(
+    (item: StockItem, quantity: number) => {
+      if (!stockCol) return;
+      const existingItem = stock?.find((p) => p.sku === item.sku);
       if (existingItem) {
-        const updatedStock = prev.stock.map(p => 
-          p.sku === item.sku ? { ...p, stock: p.stock + quantity } : p
-        );
-        return { ...prev, stock: updatedStock };
+        const docRef = doc(stockCol, existingItem.id);
+        updateDocumentNonBlocking(docRef, { stock: existingItem.stock + quantity });
       } else {
-        return { ...prev, stock: [...prev.stock, { ...item, stock: quantity }] };
+        addDocumentNonBlocking(stockCol, { ...item, stock: quantity });
       }
-    });
-  }, []);
+    },
+    [stockCol, stock]
+  );
 
-  const updateStockItem = useCallback((updatedItem: StockItem) => {
-    setAppData(prev => ({
-      ...prev,
-      stock: prev.stock.map(p => p.sku === updatedItem.sku ? { ...p, ...updatedItem } : p)
-    }));
-  }, []);
-  
-  const deleteStockItem = useCallback((sku: string) => {
-    setAppData(prev => ({
-      ...prev,
-      stock: prev.stock.filter(p => p.sku !== sku)
-    }));
-  }, []);
+  const updateStockItem = useCallback(
+    (updatedItem: StockItem) => {
+      if (!stockCol) return;
+      const docRef = doc(stockCol, updatedItem.id);
+      const { id, ...data } = updatedItem;
+      updateDocumentNonBlocking(docRef, data);
+    },
+    [stockCol]
+  );
 
-  const addSale = useCallback((saleData: Omit<Sale, 'id' | 'profit'>): Sale => {
-    const profit = saleData.items.reduce((sum, i) => sum + ((i.salePrice - i.costPrice) * i.quantity), 0);
-    let newSale: Sale | null = null;
-    
-    setAppData(prev => {
-      const saleId = prev.nextIds.sale;
-      newSale = { ...saleData, id: saleId, profit };
-      
-      const updatedStock = [...prev.stock];
-      newSale.items.forEach(item => {
-        const stockIndex = updatedStock.findIndex(p => p.sku === item.sku);
-        if (stockIndex !== -1) {
-          updatedStock[stockIndex] = { ...updatedStock[stockIndex], stock: updatedStock[stockIndex].stock - item.quantity };
-        }
-      });
+  const deleteStockItem = useCallback(
+    (itemId: string) => {
+      if (!stockCol) return;
+      deleteDocumentNonBlocking(doc(stockCol, itemId));
+    },
+    [stockCol]
+  );
 
-      const updatedCustomers = prev.customers.map(c => 
-        c.id === newSale!.customerId ? { ...c, due: c.due + newSale!.due } : c
+  const addSale = useCallback(
+    async (saleData: Omit<Sale, 'id' | 'profit'>): Promise<Sale | null> => {
+      if (!salesCol || !customersCol || !stockCol) return null;
+
+      const profit = saleData.items.reduce(
+        (sum, i) => sum + (i.salePrice - i.costPrice) * i.quantity,
+        0
       );
 
-      return {
-        ...prev,
-        sales: [newSale, ...prev.sales],
-        stock: updatedStock,
-        customers: updatedCustomers,
-        nextIds: { ...prev.nextIds, sale: saleId + 1 }
-      };
-    });
-    return newSale!;
-  }, []);
-  
-  const addCustomer = useCallback((customerData: Omit<Customer, 'id' | 'due'>): Customer => {
-    let newCustomer: Customer | null = null;
-    setAppData(prev => {
-      const customerId = prev.nextIds.customer;
-      newCustomer = { ...customerData, id: customerId, due: 0 };
-      return {
-        ...prev,
-        customers: [...prev.customers, newCustomer],
-        nextIds: { ...prev.nextIds, customer: customerId + 1 }
-      };
-    });
-    return newCustomer!;
-  }, []);
+      try {
+        const batch = writeBatch(firestore);
 
-  const updateCustomer = useCallback((updatedCustomer: Omit<Customer, 'due'>) => {
-    setAppData(prev => ({
-      ...prev,
-      customers: prev.customers.map(c => c.id === updatedCustomer.id ? { ...c, ...updatedCustomer } : c)
-    }));
-  }, []);
+        const newSaleRef = doc(salesCol);
+        const newSale: Sale = { ...saleData, id: newSaleRef.id, profit };
+        batch.set(newSaleRef, newSale);
 
-  const deleteCustomer = useCallback((customerId: number) => {
-    let canDelete = false;
-    setAppData(prev => {
-      const customer = prev.customers.find(c => c.id === customerId);
-      if (!customer) return prev;
+        saleData.items.forEach((item) => {
+          const stockDocRef = doc(stockCol, item.id);
+          const newStockLevel = item.stock - item.quantity;
+          batch.update(stockDocRef, { stock: newStockLevel });
+        });
 
-      if (customer.due > 0) {
-        if (!confirm(`WARNING: This customer has a due of ₹${customer.due.toFixed(2)}. Are you sure you want to delete?`)) {
-          canDelete = false;
-          return prev;
+        const customerRef = doc(customersCol, saleData.customerId);
+        const customer = customers?.find((c) => c.id === saleData.customerId);
+        if (customer) {
+          batch.update(customerRef, { due: customer.due + saleData.due });
         }
-      } else {
-         if (!confirm(`Are you sure you want to delete ${customer.name}?`)) {
-          canDelete = false;
-          return prev;
-        }
+
+        await batch.commit();
+        return newSale;
+      } catch (error) {
+        console.error('Error adding sale:', error);
+        return null;
+      }
+    },
+    [salesCol, customersCol, stockCol, firestore, customers]
+  );
+
+  const addCustomer = useCallback(
+    async (
+      customerData: Omit<Customer, 'id' | 'due'>
+    ): Promise<Customer | null> => {
+      if (!customersCol) return null;
+      try {
+        const newCustomerRef = doc(customersCol);
+        const newCustomer = {
+          ...customerData,
+          id: newCustomerRef.id,
+          due: 0,
+        };
+        await setDocumentNonBlocking(newCustomerRef, newCustomer, {});
+        return newCustomer;
+      } catch (error) {
+        console.error('Error adding customer:', error);
+        return null;
+      }
+    },
+    [customersCol]
+  );
+
+  const updateCustomer = useCallback(
+    (updatedCustomer: Omit<Customer, 'due'>) => {
+      if (!customersCol) return;
+      const { id, ...data } = updatedCustomer;
+      updateDocumentNonBlocking(doc(customersCol, id), data);
+    },
+    [customersCol]
+  );
+
+  const deleteCustomer = useCallback(
+    (customerId: string) => {
+      if (!customersCol) return;
+      deleteDocumentNonBlocking(doc(customersCol, customerId));
+    },
+    [customersCol]
+  );
+
+  const addExpense = useCallback(
+    (expenseData: Omit<Expense, 'id'>) => {
+      if (!expensesCol) return;
+      addDocumentNonBlocking(expensesCol, expenseData);
+    },
+    [expensesCol]
+  );
+
+  const recordPayment = useCallback(
+    (saleId: string, amount: number) => {
+      if (!salesCol || !customersCol) return;
+      const sale = sales?.find((s) => s.id === saleId);
+      if (!sale) return;
+
+      const batch = writeBatch(firestore);
+
+      const saleRef = doc(salesCol, saleId);
+      batch.update(saleRef, {
+        due: sale.due - amount,
+        amountPaid: sale.amountPaid + amount,
+      });
+
+      const customerRef = doc(customersCol, sale.customerId);
+      const customer = customers?.find((c) => c.id === sale.customerId);
+      if (customer) {
+        batch.update(customerRef, { due: customer.due - amount });
       }
 
-      canDelete = true;
-      return {
-        ...prev,
-        customers: prev.customers.filter(c => c.id !== customerId)
-      }
-    });
-    return canDelete;
-  }, []);
+      batch.commit().catch((err) => console.error('Payment failed: ', err));
+    },
+    [salesCol, customersCol, firestore, sales, customers]
+  );
 
-  const addExpense = useCallback((expenseData: Omit<Expense, 'id'>) => {
-    setAppData(prev => {
-      const expenseId = prev.nextIds.expense;
-      const newExpense = { ...expenseData, id: expenseId };
-      return {
-        ...prev,
-        expenses: [newExpense, ...prev.expenses],
-        nextIds: { ...prev.nextIds, expense: expenseId + 1 }
-      };
-    });
-  }, []);
-
-  const recordPayment = useCallback((saleId: number, amount: number) => {
-    setAppData(prev => {
-      const sale = prev.sales.find(s => s.id === saleId);
-      if (!sale || amount <= 0 || amount > sale.due) {
-        alert("Invalid payment amount.");
-        return prev;
-      }
-      
-      const updatedSales = prev.sales.map(s => s.id === saleId ? { ...s, due: s.due - amount, amountPaid: s.amountPaid + amount } : s);
-      const updatedCustomers = prev.customers.map(c => c.id === sale.customerId ? { ...c, due: c.due - amount } : c);
-
-      return {
-        ...prev,
-        sales: updatedSales,
-        customers: updatedCustomers
-      };
-    });
-  }, []);
+  // Dummy setAppData for import functionality - a more robust solution would be needed
+  const setAppData = (data: AppData) => {
+    // This is a complex operation with Firestore and is not fully implemented for this MVP.
+    // A full implementation would involve batch writing all the imported data to the user's collections.
+    console.warn(
+      'setAppData from import is not fully implemented for Firestore.'
+    );
+  };
 
   return (
-    <AppContext.Provider value={{ appData, setAppData, isLoaded, updateSettings, addStockItem, updateStockItem, deleteStockItem, addSale, addCustomer, updateCustomer, deleteCustomer, addExpense, recordPayment }}>
+    <AppContext.Provider
+      value={{
+        appData,
+        isLoaded,
+        updateSettings,
+        addStockItem,
+        updateStockItem,
+        deleteStockItem,
+        addSale,
+        addCustomer,
+        updateCustomer,
+        deleteCustomer,
+        addExpense,
+        recordPayment,
+        setAppData,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );

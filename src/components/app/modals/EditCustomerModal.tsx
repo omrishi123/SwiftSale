@@ -1,16 +1,23 @@
-"use client";
+'use client';
 
 import React, { useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAppData } from '@/contexts/AppContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import type { Customer } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 interface EditCustomerModalProps {
   isOpen: boolean;
@@ -19,17 +26,27 @@ interface EditCustomerModalProps {
 }
 
 const customerSchema = z.object({
-  id: z.number(),
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  id: z.string(),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
   phone: z.string().optional(),
   address: z.string().optional(),
 });
 
 type CustomerFormData = z.infer<typeof customerSchema>;
 
-export default function EditCustomerModal({ isOpen, onClose, customer }: EditCustomerModalProps) {
+export default function EditCustomerModal({
+  isOpen,
+  onClose,
+  customer,
+}: EditCustomerModalProps) {
   const { updateCustomer } = useAppData();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormData>({
+  const { toast } = useToast();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema),
   });
 
@@ -41,6 +58,10 @@ export default function EditCustomerModal({ isOpen, onClose, customer }: EditCus
 
   const onSubmit: SubmitHandler<CustomerFormData> = (data) => {
     updateCustomer(data);
+    toast({
+      title: 'Customer Updated',
+      description: `${data.name}'s details have been updated.`,
+    });
     onClose();
   };
 
@@ -56,20 +77,30 @@ export default function EditCustomerModal({ isOpen, onClose, customer }: EditCus
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input id="name" {...register('name')} />
-            {errors.name && <p className="text-destructive text-sm">{errors.name.message}</p>}
+            {errors.name && (
+              <p className="text-destructive text-sm">{errors.name.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>
             <Input id="phone" {...register('phone')} />
-            {errors.phone && <p className="text-destructive text-sm">{errors.phone.message}</p>}
+            {errors.phone && (
+              <p className="text-destructive text-sm">{errors.phone.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="address">Address</Label>
             <Textarea id="address" {...register('address')} />
-            {errors.address && <p className="text-destructive text-sm">{errors.address.message}</p>}
+            {errors.address && (
+              <p className="text-destructive text-sm">
+                {errors.address.message}
+              </p>
+            )}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
             <Button type="submit">Save Changes</Button>
           </DialogFooter>
         </form>
