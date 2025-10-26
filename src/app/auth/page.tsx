@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { doc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { initialData } from '@/lib/data';
 import {
@@ -75,26 +75,24 @@ export default function AuthPage() {
         );
         if (userCredential && userCredential.user) {
           const shopId = userCredential.user.uid;
-
-          // Create a new batch to perform multiple writes atomically
           const batch = writeBatch(firestore);
 
-          // 1. Create the main shop document
+          // 1. Create the main shop document with basic info
           const shopDocRef = doc(firestore, 'shops', shopId);
           batch.set(shopDocRef, {
             id: shopId,
-            name: 'My New Shop', // Default name
-            createdAt: new Date().toISOString(),
+            name: 'My New Shop',
+            createdAt: serverTimestamp(),
           });
 
-          // 2. Create the initial settings document in the settings subcollection
+          // 2. Create the shopSettings document within the settings subcollection
           const settingsDocRef = doc(
             firestore,
             `shops/${shopId}/settings/shopSettings`
           );
           batch.set(settingsDocRef, initialData.settings);
 
-          // Atomically commit the batch
+          // Atomically commit both writes to the database
           await batch.commit();
 
           toast({
@@ -102,8 +100,8 @@ export default function AuthPage() {
             description:
               'Your account and shop have been created. Please log in.',
           });
-          setIsLogin(true);
-          setPassword('');
+          setIsLogin(true); // Switch to login view
+          setPassword(''); // Clear password fields
           setConfirmPassword('');
         }
       } catch (error: any) {
