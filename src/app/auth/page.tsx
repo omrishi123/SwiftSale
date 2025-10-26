@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -22,9 +22,6 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  type ConfirmationResult,
 } from 'firebase/auth';
 
 const GoogleIcon = () => (
@@ -55,7 +52,6 @@ export default function AuthPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
-  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   const [isLogin, setIsLogin] = useState(true);
 
   // Email state
@@ -63,40 +59,13 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Phone state
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otp, setOtp] = useState('');
-  const [confirmationResult, setConfirmationResult] =
-    useState<ConfirmationResult | null>(null);
-  const [isOtpSent, setIsOtpSent] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
-  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
     if (!isUserLoading && user) {
       router.push('/');
     }
   }, [user, isUserLoading, router]);
-
-  useEffect(() => {
-    if (!auth) return;
-    // Ensure reCAPTCHA is rendered only for phone auth and if it hasn't been already
-    if (authMethod === 'phone' && !recaptchaVerifierRef.current) {
-      // Delay to ensure the container is in the DOM
-      setTimeout(() => {
-        if (document.getElementById('recaptcha-container')) {
-          recaptchaVerifierRef.current = new RecaptchaVerifier(
-            auth,
-            'recaptcha-container',
-            {
-              size: 'invisible',
-            }
-          );
-        }
-      }, 100);
-    }
-  }, [auth, authMethod]);
 
   const setupNewUser = async (userId: string) => {
     // Check if the user document already exists to prevent overwriting
@@ -141,58 +110,8 @@ export default function AuthPage() {
     }
   };
 
-  const handlePhoneSignIn = async () => {
-    setIsLoading(true);
-    if (!recaptchaVerifierRef.current) {
-      toast({
-        variant: 'destructive',
-        title: 'reCAPTCHA not ready',
-        description: 'Please wait a moment and try again.',
-      });
-      setIsLoading(false);
-      return;
-    }
-    try {
-      const result = await signInWithPhoneNumber(
-        auth,
-        phoneNumber,
-        recaptchaVerifierRef.current
-      );
-      setConfirmationResult(result);
-      setIsOtpSent(true);
-      toast({
-        title: 'OTP Sent',
-        description: `An OTP has been sent to ${phoneNumber}`,
-      });
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Phone Sign-In Failed',
-        description: error.message,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleOtpSubmit = async () => {
-    if (!confirmationResult) return;
-    setIsLoading(true);
-    try {
-      const result = await confirmationResult.confirm(otp);
-      await setupNewUser(result.user.uid);
-      // onAuthStateChanged will handle redirect
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'OTP Verification Failed',
-        description: error.message,
-      });
-      setIsLoading(false);
-    }
-  };
-
-  const handleEmailAuth = async () => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     if (isLogin) {
       try {
@@ -237,18 +156,6 @@ export default function AuthPage() {
     }
   };
 
-  const handleAuthAction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authMethod === 'email') {
-      await handleEmailAuth();
-    } else if (authMethod === 'phone') {
-      if (!isOtpSent) {
-        await handlePhoneSignIn();
-      } else {
-        await handleOtpSubmit();
-      }
-    }
-  };
 
   if (isUserLoading || user) {
     return (
@@ -263,113 +170,56 @@ export default function AuthPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-2xl">
-            {authMethod === 'email'
-              ? isLogin
-                ? 'Login'
-                : 'Sign Up'
-              : 'Sign In with Phone'}
+            {isLogin ? 'Login' : 'Sign Up'}
           </CardTitle>
           <CardDescription>
-            {authMethod === 'email' && isLogin
+            {isLogin
               ? 'Enter your email below to login to your account'
-              : 'Enter your details to continue'}
+              : 'Enter your details to create an account'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex gap-2">
-            <Button
-              variant={authMethod === 'email' ? 'default' : 'outline'}
-              className="w-full"
-              onClick={() => setAuthMethod('email')}
-            >
-              Email
-            </Button>
-            <Button
-              variant={authMethod === 'phone' ? 'default' : 'outline'}
-              className="w-full"
-              onClick={() => setAuthMethod('phone')}
-            >
-              Phone
-            </Button>
-          </div>
-
-          <form onSubmit={handleAuthAction}>
+          <form onSubmit={handleEmailAuth}>
             <div className="grid gap-4">
-              {authMethod === 'email' ? (
-                <>
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="m@example.com"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </div>
-                  {!isLogin && (
-                    <div className="grid gap-2">
-                      <Label htmlFor="confirm-password">Confirm Password</Label>
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                      />
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  {!isOtpSent ? (
-                    <div className="grid gap-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        placeholder="+1 123 456 7890"
-                        required
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                      />
-                    </div>
-                  ) : (
-                    <div className="grid gap-2">
-                      <Label htmlFor="otp">Enter OTP</Label>
-                      <Input
-                        id="otp"
-                        type="text"
-                        placeholder="123456"
-                        required
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
-                      />
-                    </div>
-                  )}
-                </>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              {!isLogin && (
+                <div className="grid gap-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
               )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading
                   ? 'Processing...'
-                  : authMethod === 'email'
-                  ? isLogin
-                    ? 'Sign in'
-                    : 'Create an account'
-                  : isOtpSent
-                  ? 'Verify OTP'
-                  : 'Send OTP'}
+                  : isLogin
+                  ? 'Sign in'
+                  : 'Create an account'}
               </Button>
             </div>
           </form>
@@ -395,21 +245,18 @@ export default function AuthPage() {
             Sign in with Google
           </Button>
 
-          {authMethod === 'email' && (
-            <div className="mt-4 text-center text-sm">
-              {isLogin ? "Don't have an account?" : 'Already have an account?'}
-              <Button
-                variant="link"
-                className="pl-1"
-                onClick={() => setIsLogin(!isLogin)}
-              >
-                {isLogin ? 'Sign up' : 'Sign in'}
-              </Button>
-            </div>
-          )}
+          <div className="mt-4 text-center text-sm">
+            {isLogin ? "Don't have an account?" : 'Already have an account?'}
+            <Button
+              variant="link"
+              className="pl-1"
+              onClick={() => setIsLogin(!isLogin)}
+            >
+              {isLogin ? 'Sign up' : 'Sign in'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
-      <div id="recaptcha-container"></div>
     </main>
   );
 }
