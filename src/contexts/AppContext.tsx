@@ -59,7 +59,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useUser();
   const firestore = useFirestore();
 
-  // Adjusted paths to match /shops/{shopId}/... structure
   const settingsRef = useMemoFirebase(
     () => (user ? doc(firestore, `shops/${user.uid}/settings/shopSettings`) : null),
     [firestore, user]
@@ -116,7 +115,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const updateSettings = useCallback(
     (newSettings: Partial<AppSettings>) => {
       if (settingsRef) {
-        updateDocumentNonBlocking(settingsRef, newSettings);
+        // Use set with merge:true to create the document if it doesn't exist,
+        // or update it if it does. This handles both new and existing users.
+        setDocumentNonBlocking(settingsRef, newSettings, { merge: true });
       }
     },
     [settingsRef]
@@ -211,7 +212,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           id: newCustomerRef.id,
           due: 0,
         };
-        await setDocumentNonBlocking(newCustomerRef, newCustomer);
+        await setDocumentNonBlocking(newCustomerRef, newCustomer, { merge: true });
         return newCustomer;
       } catch (error) {
         console.error('Error adding customer:', error);
