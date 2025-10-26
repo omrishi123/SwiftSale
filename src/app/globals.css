@@ -91,34 +91,46 @@ body {
 }
 
 @media print {
-  /* This is the A4 size rule */
   @page {
     size: A4;
     margin: 0;
   }
 
-  /* Hide everything in the body by default when printing */
-  body.printing-bill > *:not(.bill-container-wrapper) {
-    display: none;
+  body * {
+    visibility: hidden;
+  }
+
+  .bill-container, .bill-container * {
+    visibility: visible;
   }
   
-  /* Ensure the bill container wrapper is visible and positioned correctly */
-  body.printing-bill .bill-container-wrapper {
-    display: block !important;
+  .bill-container-wrapper {
     position: absolute;
-    top: 0;
     left: 0;
+    top: 0;
     width: 100%;
-    height: 100%;
+    padding: 0 !important;
   }
-  
+
   .bill-container {
-    width: 210mm; /* A4 width */
+    width: 210mm;
     min-height: 297mm; /* A4 height */
     padding: 20mm; /* Standard margin */
     margin: 0 auto;
-    background: white;
-    color: black;
+    background: white !important;
+    color: black !important;
     box-sizing: border-box;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  body.dark .bill-container {
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+    --primary: 271 76% 53%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --border: 0 0% 89.8%;
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--card-foreground)) !important;
   }
 }

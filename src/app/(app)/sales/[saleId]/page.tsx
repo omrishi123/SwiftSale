@@ -17,71 +17,60 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useParams } from 'next/navigation';
 
-interface BillPageProps {
-  params: {
-    saleId: string;
-  };
-}
-
-export default function BillPage({ params }: BillPageProps) {
+export default function BillPage() {
+  const params = useParams();
+  const saleId = params.saleId as string;
   const { appData } = useAppData();
-  const sale = appData.sales.find((s) => s.id === params.saleId);
+
+  const sale = appData.sales.find((s) => s.id === saleId);
   const customer = sale
     ? appData.customers.find((c) => c.id === sale.customerId)
     : null;
   const settings = appData.settings;
 
   const handlePrint = () => {
-    document.body.classList.add('printing-bill');
     window.print();
-    document.body.classList.remove('printing-bill');
   };
 
   const handleDownload = () => {
     const input = document.getElementById('bill-content');
     if (input) {
-      document.body.classList.add('printing-bill');
+      html2canvas(input, {
+        scale: 3,
+        useCORS: true,
+        logging: false,
+        width: input.offsetWidth,
+        height: input.offsetHeight,
+      })
+        .then((canvas) => {
+          const imgData = canvas.toDataURL('image/png');
+          const pdf = new jsPDF('p', 'mm', 'a4');
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      setTimeout(() => {
-        html2canvas(input, {
-          scale: 3,
-          useCORS: true,
-          logging: false,
-          width: input.offsetWidth,
-          height: input.offsetHeight,
+          const canvasWidth = canvas.width;
+          const canvasHeight = canvas.height;
+          const canvasAspectRatio = canvasWidth / canvasHeight;
+
+          let imgWidth = pdfWidth;
+          let imgHeight = pdfWidth / canvasAspectRatio;
+
+          if (imgHeight > pdfHeight) {
+            imgHeight = pdfHeight;
+            imgWidth = pdfHeight * canvasAspectRatio;
+          }
+
+          const xOffset = (pdfWidth - imgWidth) / 2;
+          const yOffset = 0;
+
+          pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
+          pdf.save(`invoice-${sale?.id}.pdf`);
         })
-          .then((canvas) => {
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-
-            const canvasWidth = canvas.width;
-            const canvasHeight = canvas.height;
-            const canvasAspectRatio = canvasWidth / canvasHeight;
-
-            let imgWidth = pdfWidth;
-            let imgHeight = pdfWidth / canvasAspectRatio;
-
-            if (imgHeight > pdfHeight) {
-              imgHeight = pdfHeight;
-              imgWidth = pdfHeight * canvasAspectRatio;
-            }
-
-            const xOffset = (pdfWidth - imgWidth) / 2;
-            const yOffset = 0;
-
-            pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
-            pdf.save(`invoice-${sale?.id}.pdf`);
-          })
-          .catch((err) => {
-            console.error('Error generating PDF:', err);
-          })
-          .finally(() => {
-            document.body.classList.remove('printing-bill');
-          });
-      }, 100);
+        .catch((err) => {
+          console.error('Error generating PDF:', err);
+        });
     }
   };
 
@@ -116,8 +105,11 @@ export default function BillPage({ params }: BillPageProps) {
           </Button>
         </div>
       </div>
-      <div className="bill-container-wrapper">
-        <div className="bill-container" id="bill-content">
+      <div className="bill-container-wrapper p-4 sm:p-8">
+        <div
+          className="bill-container max-w-4xl mx-auto bg-card p-8 rounded-lg shadow-sm"
+          id="bill-content"
+        >
           <header className="flex items-start justify-between pb-6">
             <div className="flex items-center gap-4">
               {settings?.shopLogoUrl && (
@@ -180,7 +172,9 @@ export default function BillPage({ params }: BillPageProps) {
                 {sale.items.map((item) => (
                   <TableRow key={item.sku}>
                     <TableCell>{item.name}</TableCell>
-                    <TableCell className="text-center">{item.quantity}</TableCell>
+                    <TableCell className="text-center">
+                      {item.quantity}
+                    </TableCell>
                     <TableCell className="text-right">
                       ₹{item.salePrice.toFixed(2)}
                     </TableCell>
