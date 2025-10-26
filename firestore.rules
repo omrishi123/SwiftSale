@@ -1,10 +1,37 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for shops and their related data (products, customers, sales, expenses).
+ *
+ * Data Structure:
+ * - /shops/{shopId}: Stores shop information, where shopId is the Firebase Auth UID of the shop owner.
+ * - /shops/{shopId}/products/{productId}: Stores product information for a specific shop.
+ * - /shops/{shopId}/customers/{customerId}: Stores customer information for a specific shop.
+ * - /shops/{shopId}/sales/{saleId}: Stores sales transaction data for a specific shop.
+ * - /shops/{shopId}/expenses/{expenseId}: Stores expense data for a specific shop.
+ *
+ * Key Security Decisions:
+ * - Users (shop owners) can only access data related to their own shop.
+ * - Listing all shops or any subcollections is disallowed for security reasons.
+ * - The rules are designed to prevent the need for `get()` calls, improving performance and security.
+ * - No data type validation is performed, allowing for flexible data shapes during prototyping.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages access to shop documents.
+     * @description Rules for the /shops/{shopId} collection.
      * @path /shops/{shopId}
+     * @allow (create) User with UID 'user_abc' can create a shop if request.auth.uid == 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a shop with shopId 'user_abc'.
+     * @allow (get) User with UID 'user_abc' can get shop data for shopId 'user_abc'.
+     * @deny (get) User with UID 'user_xyz' cannot get shop data for shopId 'user_abc'.
+     * @allow (update) User with UID 'user_abc' can update shop data for shopId 'user_abc'.
+     * @deny (update) User with UID 'user_xyz' cannot update shop data for shopId 'user_abc'.
+     * @allow (delete) User with UID 'user_abc' can delete shop data for shopId 'user_abc'.
+     * @deny (delete) User with UID 'user_xyz' cannot delete shop data for shopId 'user_abc'.
+     * @deny (list) No one can list shops.
+     * @principle Enforces shop ownership based on Firebase Auth UID.
      */
     match /shops/{shopId} {
       function isSignedIn() {
@@ -16,19 +43,30 @@ service cloud.firestore {
       }
 
       function isExistingOwner(shopId) {
-        return isSignedIn() && request.auth.uid == shopId && existsAfter(/databases/$(database)/documents/shops/$(shopId));
+        return isOwner(shopId) && resource != null;
       }
 
-      allow get: if isExistingOwner(shopId);
-      allow list: if false; // Listing all shops is not permitted.
       allow create: if isOwner(shopId);
+      allow get: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
+      allow list: if false;
     }
 
     /**
-     * @description Manages access to product documents within a shop.
+     * @description Rules for the /shops/{shopId}/products/{productId} collection.
      * @path /shops/{shopId}/products/{productId}
+     * @allow (create) User with UID 'user_abc' can create a product in shop 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a product in shop 'user_abc'.
+     * @allow (get) User with UID 'user_abc' can get product data in shop 'user_abc'.
+     * @deny (get) User with UID 'user_xyz' cannot get product data in shop 'user_abc'.
+     * @allow (update) User with UID 'user_abc' can update product data in shop 'user_abc'.
+     * @deny (update) User with UID 'user_xyz' cannot update product data in shop 'user_abc'.
+     * @allow (delete) User with UID 'user_abc' can delete product data in shop 'user_abc'.
+     * @deny (delete) User with UID 'user_xyz' cannot delete product data in shop 'user_abc'.
+     * @allow (list) User with UID 'user_abc' can list products in shop 'user_abc'.
+     * @deny (list) User with UID 'user_xyz' cannot list products in shop 'user_abc'.
+     * @principle Enforces shop ownership for product data access.
      */
     match /shops/{shopId}/products/{productId} {
       function isSignedIn() {
@@ -39,20 +77,31 @@ service cloud.firestore {
         return isSignedIn() && request.auth.uid == shopId;
       }
 
-      function isExistingOwner(shopId) {
-        return isSignedIn() && request.auth.uid == shopId && existsAfter(/databases/$(database)/documents/shops/$(shopId));
+       function isExistingOwner(shopId) {
+        return isOwner(shopId) && resource != null;
       }
 
-      allow get: if isExistingOwner(shopId);
-      allow list: if isOwner(shopId);
       allow create: if isOwner(shopId);
+      allow get: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
+      allow list: if isOwner(shopId);
     }
 
     /**
-     * @description Manages access to customer documents within a shop.
+     * @description Rules for the /shops/{shopId}/customers/{customerId} collection.
      * @path /shops/{shopId}/customers/{customerId}
+     * @allow (create) User with UID 'user_abc' can create a customer in shop 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a customer in shop 'user_abc'.
+     * @allow (get) User with UID 'user_abc' can get customer data in shop 'user_abc'.
+     * @deny (get) User with UID 'user_xyz' cannot get customer data in shop 'user_abc'.
+     * @allow (update) User with UID 'user_abc' can update customer data in shop 'user_abc'.
+     * @deny (update) User with UID 'user_xyz' cannot update customer data in shop 'user_abc'.
+     * @allow (delete) User with UID 'user_abc' can delete customer data in shop 'user_abc'.
+     * @deny (delete) User with UID 'user_xyz' cannot delete customer data in shop 'user_abc'.
+     * @allow (list) User with UID 'user_abc' can list customers in shop 'user_abc'.
+     * @deny (list) User with UID 'user_xyz' cannot list customers in shop 'user_abc'.
+     * @principle Enforces shop ownership for customer data access.
      */
     match /shops/{shopId}/customers/{customerId} {
       function isSignedIn() {
@@ -63,20 +112,31 @@ service cloud.firestore {
         return isSignedIn() && request.auth.uid == shopId;
       }
 
-      function isExistingOwner(shopId) {
-        return isSignedIn() && request.auth.uid == shopId && existsAfter(/databases/$(database)/documents/shops/$(shopId));
+       function isExistingOwner(shopId) {
+        return isOwner(shopId) && resource != null;
       }
 
-      allow get: if isExistingOwner(shopId);
-      allow list: if isOwner(shopId);
       allow create: if isOwner(shopId);
+      allow get: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
+      allow list: if isOwner(shopId);
     }
 
     /**
-     * @description Manages access to sales documents within a shop.
+     * @description Rules for the /shops/{shopId}/sales/{saleId} collection.
      * @path /shops/{shopId}/sales/{saleId}
+     * @allow (create) User with UID 'user_abc' can create a sale in shop 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a sale in shop 'user_abc'.
+     * @allow (get) User with UID 'user_abc' can get sale data in shop 'user_abc'.
+     * @deny (get) User with UID 'user_xyz' cannot get sale data in shop 'user_abc'.
+     * @allow (update) User with UID 'user_abc' can update sale data in shop 'user_abc'.
+     * @deny (update) User with UID 'user_xyz' cannot update sale data in shop 'user_abc'.
+     * @allow (delete) User with UID 'user_abc' can delete sale data in shop 'user_abc'.
+     * @deny (delete) User with UID 'user_xyz' cannot delete sale data in shop 'user_abc'.
+     * @allow (list) User with UID 'user_abc' can list sales in shop 'user_abc'.
+     * @deny (list) User with UID 'user_xyz' cannot list sales in shop 'user_abc'.
+     * @principle Enforces shop ownership for sales data access.
      */
     match /shops/{shopId}/sales/{saleId} {
       function isSignedIn() {
@@ -87,20 +147,31 @@ service cloud.firestore {
         return isSignedIn() && request.auth.uid == shopId;
       }
 
-      function isExistingOwner(shopId) {
-        return isSignedIn() && request.auth.uid == shopId && existsAfter(/databases/$(database)/documents/shops/$(shopId));
+       function isExistingOwner(shopId) {
+        return isOwner(shopId) && resource != null;
       }
 
-      allow get: if isExistingOwner(shopId);
-      allow list: if isOwner(shopId);
       allow create: if isOwner(shopId);
+      allow get: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
+      allow list: if isOwner(shopId);
     }
 
     /**
-     * @description Manages access to expense documents within a shop.
+     * @description Rules for the /shops/{shopId}/expenses/{expenseId} collection.
      * @path /shops/{shopId}/expenses/{expenseId}
+     * @allow (create) User with UID 'user_abc' can create an expense in shop 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create an expense in shop 'user_abc'.
+     * @allow (get) User with UID 'user_abc' can get expense data in shop 'user_abc'.
+     * @deny (get) User with UID 'user_xyz' cannot get expense data in shop 'user_abc'.
+     * @allow (update) User with UID 'user_abc' can update expense data in shop 'user_abc'.
+     * @deny (update) User with UID 'user_xyz' cannot update expense data in shop 'user_abc'.
+     * @allow (delete) User with UID 'user_abc' can delete expense data in shop 'user_abc'.
+     * @deny (delete) User with UID 'user_xyz' cannot delete expense data in shop 'user_abc'.
+     * @allow (list) User with UID 'user_abc' can list expenses in shop 'user_abc'.
+     * @deny (list) User with UID 'user_xyz' cannot list expenses in shop 'user_abc'.
+     * @principle Enforces shop ownership for expenses data access.
      */
     match /shops/{shopId}/expenses/{expenseId} {
       function isSignedIn() {
@@ -111,15 +182,15 @@ service cloud.firestore {
         return isSignedIn() && request.auth.uid == shopId;
       }
 
-      function isExistingOwner(shopId) {
-        return isSignedIn() && request.auth.uid == shopId && existsAfter(/databases/$(database)/documents/shops/$(shopId));
+       function isExistingOwner(shopId) {
+        return isOwner(shopId) && resource != null;
       }
 
-      allow get: if isExistingOwner(shopId);
-      allow list: if isOwner(shopId);
       allow create: if isOwner(shopId);
+      allow get: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
+      allow list: if isOwner(shopId);
     }
   }
 }
