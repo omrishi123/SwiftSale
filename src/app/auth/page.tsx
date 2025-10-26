@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { doc, writeBatch, collection } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { initialData } from '@/lib/data';
 import {
@@ -91,7 +91,7 @@ export default function AuthPage() {
             createdAt: new Date().toISOString(),
           });
 
-          // 2. Create the initial settings document
+          // 2. Create the initial settings document in the settings subcollection
           const settingsDocRef = doc(
             firestore,
             `shops/${shopId}/settings/shopSettings`
