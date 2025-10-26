@@ -1,123 +1,123 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for shops and their associated data (products, customers, sales, expenses).
- *
- * Data Structure:
- * - /shops/{shopId}: Stores shop information. The shopId MUST match the Firebase Auth UID of the shop owner.
- * - /shops/{shopId}/products/{productId}: Stores product information for a specific shop.
- * - /shops/{shopId}/customers/{customerId}: Stores customer information for a specific shop.
- * - /shops/{shopId}/sales/{saleId}: Stores sales transaction data for a specific shop.
- * - /shops/{shopId}/expenses/{expenseId}: Stores expense data for a specific shop.
- *
- * Key Security Decisions:
- * - User listing is generally disallowed to prevent information disclosure.
- * - All data is nested under /shops/{shopId}, enforcing ownership.
- * - No schema validation is performed beyond checking relational integrity (e.g., shopId).
- *
- * Denormalization for Authorization:
- * - Shop ownership is determined directly from the path (/shops/{shopId}), eliminating the need for additional reads.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user's UID matches the provided shopId.
-     */
-    function isOwner(shopId) {
-      return isSignedIn() && request.auth.uid == shopId;
-    }
-
-    /**
-     * @description Checks if the authenticated user's UID matches the provided shopId and the resource exists.
-     */
-    function isExistingOwner(shopId) {
-      return isOwner(shopId) && resource != null;
-    }
-
-    /**
-     * @description Grants or denies access to shop documents.
+     * @description Manages access to shop documents.
      * @path /shops/{shopId}
-     * @allow (create) User with UID 'user123' can create a shop document where shopId == 'user123'.
-     * @deny (create) User with UID 'user456' cannot create a shop document where shopId == 'user123'.
-     * @principle Enforces document ownership for writes and self-creation.
      */
     match /shops/{shopId} {
-      allow get: if isOwner(shopId);
-      allow list: if false; // Listing shops is not allowed.
+      function isSignedIn() {
+        return request.auth != null;
+      }
 
-      allow create: if isOwner(shopId);
+      function isOwner(shopId) {
+        return isSignedIn() && request.auth.uid == shopId;
+      }
+
+      function isExistingOwner(shopId) {
+        return isSignedIn() && isOwner(shopId) && exists(resource);
+      }
+
+      allow get: if isExistingOwner(shopId);
+      allow list: if false; // Listing all shops is not permitted.
+      allow create: if isSignedIn() && isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
     }
 
     /**
-     * @description Grants or denies access to product documents within a shop.
+     * @description Manages access to product documents within a shop.
      * @path /shops/{shopId}/products/{productId}
-     * @allow (create) User with UID 'shop123' can create a product document under /shops/shop123/products.
-     * @deny (update) User with UID 'shop456' cannot update a product document under /shops/shop123/products.
-     * @principle Enforces document ownership for writes.
      */
     match /shops/{shopId}/products/{productId} {
-      allow get: if isOwner(shopId);
-      allow list: if isOwner(shopId);
+      function isSignedIn() {
+        return request.auth != null;
+      }
 
-      allow create: if isOwner(shopId);
+      function isOwner(shopId) {
+        return isSignedIn() && request.auth.uid == shopId;
+      }
+
+        function isExistingOwner(shopId) {
+          return isSignedIn() && isOwner(shopId) && exists(resource);
+        }
+
+      allow get: if isExistingOwner(shopId);
+      allow list: if isOwner(shopId);
+      allow create: if isSignedIn() && isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
     }
 
     /**
-     * @description Grants or denies access to customer documents within a shop.
+     * @description Manages access to customer documents within a shop.
      * @path /shops/{shopId}/customers/{customerId}
-     * @allow (create) User with UID 'shop123' can create a customer document under /shops/shop123/customers.
-     * @deny (update) User with UID 'shop456' cannot update a customer document under /shops/shop123/customers.
-     * @principle Enforces document ownership for writes.
      */
     match /shops/{shopId}/customers/{customerId} {
-      allow get: if isOwner(shopId);
-      allow list: if isOwner(shopId);
+      function isSignedIn() {
+        return request.auth != null;
+      }
 
-      allow create: if isOwner(shopId);
+      function isOwner(shopId) {
+        return isSignedIn() && request.auth.uid == shopId;
+      }
+
+        function isExistingOwner(shopId) {
+          return isSignedIn() && isOwner(shopId) && exists(resource);
+        }
+
+      allow get: if isExistingOwner(shopId);
+      allow list: if isOwner(shopId);
+      allow create: if isSignedIn() && isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
     }
 
     /**
-     * @description Grants or denies access to sales documents within a shop.
+     * @description Manages access to sales documents within a shop.
      * @path /shops/{shopId}/sales/{saleId}
-     * @allow (create) User with UID 'shop123' can create a sale document under /shops/shop123/sales.
-     * @deny (update) User with UID 'shop456' cannot update a sale document under /shops/shop123/sales.
-     * @principle Enforces document ownership for writes.
      */
     match /shops/{shopId}/sales/{saleId} {
-      allow get: if isOwner(shopId);
-      allow list: if isOwner(shopId);
+      function isSignedIn() {
+        return request.auth != null;
+      }
 
-      allow create: if isOwner(shopId);
+      function isOwner(shopId) {
+        return isSignedIn() && request.auth.uid == shopId;
+      }
+
+        function isExistingOwner(shopId) {
+          return isSignedIn() && isOwner(shopId) && exists(resource);
+        }
+
+      allow get: if isExistingOwner(shopId);
+      allow list: if isOwner(shopId);
+      allow create: if isSignedIn() && isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
     }
 
     /**
-     * @description Grants or denies access to expense documents within a shop.
+     * @description Manages access to expense documents within a shop.
      * @path /shops/{shopId}/expenses/{expenseId}
-     * @allow (create) User with UID 'shop123' can create an expense document under /shops/shop123/expenses.
-     * @deny (update) User with UID 'shop456' cannot update an expense document under /shops/shop123/expenses.
-     * @principle Enforces document ownership for writes.
      */
     match /shops/{shopId}/expenses/{expenseId} {
-      allow get: if isOwner(shopId);
-      allow list: if isOwner(shopId);
+      function isSignedIn() {
+        return request.auth != null;
+      }
 
-      allow create: if isOwner(shopId);
+      function isOwner(shopId) {
+        return isSignedIn() && request.auth.uid == shopId;
+      }
+
+        function isExistingOwner(shopId) {
+          return isSignedIn() && isOwner(shopId) && exists(resource);
+        }
+
+      allow get: if isExistingOwner(shopId);
+      allow list: if isOwner(shopId);
+      allow create: if isSignedIn() && isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
     }
