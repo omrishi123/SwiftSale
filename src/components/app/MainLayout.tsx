@@ -88,15 +88,7 @@ export default function MainLayout({
 
   const activePage =
     navItems.find((item) => item.href === pathname)?.label || 'Dashboard';
-
-  if (!isLoaded) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="text-xl font-semibold">Loading SwiftSale Pro...</div>
-      </div>
-    );
-  }
-
+    
   const pageContent = React.useMemo(() => {
     switch (pathname) {
       case '/customers':
@@ -118,6 +110,14 @@ export default function MainLayout({
         return children;
     }
   }, [pathname, openModal, children]);
+
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="text-xl font-semibold">Loading SwiftSale Pro...</div>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
