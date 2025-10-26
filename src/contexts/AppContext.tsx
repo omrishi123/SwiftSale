@@ -59,36 +59,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useUser();
   const firestore = useFirestore();
 
+  // Adjusted paths to match /shops/{shopId}/... structure
   const settingsRef = useMemoFirebase(
-    () => (user ? doc(firestore, `users/${user.uid}/appData/settings`) : null),
+    () => (user ? doc(firestore, `shops/${user.uid}/settings/shopSettings`) : null),
     [firestore, user]
   );
   const { data: settings, isLoading: settingsLoading } =
     useDoc<AppSettings>(settingsRef);
 
   const stockCol = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/stock`) : null),
+    () => (user ? collection(firestore, `shops/${user.uid}/products`) : null),
     [firestore, user]
   );
   const { data: stock, isLoading: stockLoading } =
     useCollection<StockItem>(stockCol);
 
   const customersCol = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/customers`) : null),
+    () => (user ? collection(firestore, `shops/${user.uid}/customers`) : null),
     [firestore, user]
   );
   const { data: customers, isLoading: customersLoading } =
     useCollection<Customer>(customersCol);
 
   const salesCol = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/sales`) : null),
+    () => (user ? collection(firestore, `shops/${user.uid}/sales`) : null),
     [firestore, user]
   );
   const { data: sales, isLoading: salesLoading } =
     useCollection<Sale>(salesCol);
 
   const expensesCol = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/expenses`) : null),
+    () => (user ? collection(firestore, `shops/${user.uid}/expenses`) : null),
     [firestore, user]
   );
   const { data: expenses, isLoading: expensesLoading } =
@@ -97,7 +98,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    // We consider the app "loaded" when we have the user and their essential settings.
     if (user && !settingsLoading) {
       setIsLoaded(true);
     }

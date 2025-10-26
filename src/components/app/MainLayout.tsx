@@ -43,6 +43,7 @@ import EditCustomerModal from '@/components/app/modals/EditCustomerModal';
 import RecordPaymentModal from '@/components/app/modals/RecordPaymentModal';
 import { ThemeToggle } from './ThemeToggle';
 import type { StockItem, Customer, Sale } from '@/lib/types';
+import type { User } from 'firebase/auth';
 
 export type ModalType =
   | 'newSale'
@@ -59,8 +60,10 @@ export interface ModalState {
 
 export default function MainLayout({
   children,
+  user,
 }: {
   children: React.ReactNode;
+  user: User | null;
 }) {
   const { isLoaded } = useAppData();
   const pathname = usePathname();
@@ -90,6 +93,15 @@ export default function MainLayout({
     navItems.find((item) => item.href === pathname)?.label || 'Dashboard';
     
   const pageContent = React.useMemo(() => {
+    // Check for loading state first to ensure hooks are called unconditionally
+    if (!isLoaded || !user) {
+      return (
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="text-xl font-semibold">Loading SwiftSale Pro...</div>
+        </div>
+      );
+    }
+
     switch (pathname) {
       case '/customers':
         return <CustomersPage openModal={openModal} />;
@@ -107,11 +119,18 @@ export default function MainLayout({
         return <DashboardPage openModal={openModal} />;
       default:
         // This will render the content for routes like /sales/[saleId]
-        return children;
+        // We pass the user prop down to children that might need it
+        return React.Children.map(children, (child) => {
+          if (React.isValidElement(child)) {
+            // @ts-ignore
+            return React.cloneElement(child, { user });
+          }
+          return child;
+        });
     }
-  }, [pathname, openModal, children]);
+  }, [pathname, openModal, children, isLoaded, user]);
 
-  if (!isLoaded) {
+  if (!isLoaded || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="text-xl font-semibold">Loading SwiftSale Pro...</div>

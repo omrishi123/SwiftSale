@@ -1,39 +1,27 @@
 /**
  * @file Firestore Security Rules
- * @version 2
- *
- * @description
- * This ruleset enforces a strict user-ownership model for shop data. Each shop is owned by a specific user,
- * and only that user can create, read, update, or delete data associated with their shop. All data is nested
- * under /shops/{shopId}, where shopId is the Firebase Auth UID of the shop owner.
+ * @description This ruleset enforces a strict user-ownership model for shops and their associated data (products, customers, sales, expenses). Each shop is owned by a user, and only that user can create, read, update, or delete data within their shop's data tree.
  *
  * Data Structure:
- * - /shops/{shopId}: Shop details, where shopId is the owner's UID.
- * - /shops/{shopId}/products/{productId}: Products belonging to the shop.
- * - /shops/{shopId}/customers/{customerId}: Customers of the shop.
- * - /shops/{shopId}/sales/{saleId}: Sales transactions for the shop.
- * - /shops/{shopId}/expenses/{expenseId}: Expenses of the shop.
+ * All data is nested under /shops/{shopId}, where shopId is the Firebase Auth UID of the shop owner.
  *
  * Key Security Decisions:
- * - User ownership is enforced at the root level (/shops/{shopId}).
- * - Subcollections inherit the ownership of their parent shop.
- * - No public listing is allowed for any collections. Only the owner can list data.
- *
- * Denormalization for Authorization:
- * - The shopId is derived from the path itself (/shops/{shopId}), eliminating the need for get() calls
- *   to verify shop ownership. All subcollections inherit this ownership.
+ * - Strict Ownership: Only the authenticated user who owns the shop can access its data.
+ * - No User Listing: Listing of all users is disallowed.
+ * - Data Denormalization: Ownership is verified via path-based authorization (`shopId` is derived from `request.auth.uid`).
+ *   This avoids `get()` calls to other documents to verify ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Rules for /shops/{shopId}
-     * Allows the shop owner to read, create, update, and delete their own shop data.
+     * @description Enforces shop ownership: only the authenticated user who owns the shop can manage it.
      * @path /shops/{shopId}
-     * @allow (create) - Authenticated user with UID matching shopId can create a shop.
-     * @allow (get, update, delete) - Authenticated user with UID matching shopId can get, update, or delete the shop.
-     * @deny (create, get, update, delete) - Authenticated user with UID not matching shopId cannot create, get, update, or delete the shop.
+     * @allow (create) User with UID 'user_abc' can create a shop document where shopId == 'user_abc'.
+     * @allow (get, update, delete) User with UID 'user_abc' can get, update, or delete the shop document where shopId == 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a shop document where shopId == 'user_abc'.
+     * @deny (update, delete) User with UID 'user_xyz' cannot update or delete the shop document where shopId == 'user_abc'.
      * @principle Enforces document ownership for all operations.
      */
     match /shops/{shopId} {
@@ -50,21 +38,24 @@ service cloud.firestore {
       }
 
       allow get: if isOwner(shopId);
-      allow list: if false; //Prevent listing all shops
+      allow list: if false; // Listing all shops is disallowed
 
+      // Allow a user to create their own shop document.
       allow create: if isOwner(shopId);
+
+      // Allow the owner to update and delete their shop document, but only if it exists.
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
     }
 
     /**
-     * @description Rules for /shops/{shopId}/products/{productId}
-     * Allows the shop owner to read, create, update, and delete products within their shop.
+     * @description Enforces product ownership within a shop: only the shop owner can manage products.
      * @path /shops/{shopId}/products/{productId}
-     * @allow (create) - Shop owner can create a product.
-     * @allow (get, update, delete) - Shop owner can get, update, or delete a product.
-     * @deny (create, get, update, delete) - Non-shop owner cannot create, get, update, or delete a product.
-     * @principle Enforces ownership inheritance and document existence for writes.
+     * @allow (create) User with UID 'user_abc' can create a product in shop 'user_abc'.
+     * @allow (get, list, update, delete) User with UID 'user_abc' can get, list, update, or delete products in shop 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a product in shop 'user_abc'.
+     * @deny (update, delete) User with UID 'user_xyz' cannot update or delete a product in shop 'user_abc'.
+     * @principle Enforces shop ownership for product management.
      */
     match /shops/{shopId}/products/{productId} {
       function isSignedIn() {
@@ -87,13 +78,13 @@ service cloud.firestore {
     }
 
     /**
-     * @description Rules for /shops/{shopId}/customers/{customerId}
-     * Allows the shop owner to read, create, update, and delete customers within their shop.
+     * @description Enforces customer ownership within a shop: only the shop owner can manage customers.
      * @path /shops/{shopId}/customers/{customerId}
-     * @allow (create) - Shop owner can create a customer.
-     * @allow (get, update, delete) - Shop owner can get, update, or delete a customer.
-     * @deny (create, get, update, delete) - Non-shop owner cannot create, get, update, or delete a customer.
-     * @principle Enforces ownership inheritance and document existence for writes.
+     * @allow (create) User with UID 'user_abc' can create a customer in shop 'user_abc'.
+     * @allow (get, list, update, delete) User with UID 'user_abc' can get, list, update, or delete customers in shop 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a customer in shop 'user_abc'.
+     * @deny (update, delete) User with UID 'user_xyz' cannot update or delete a customer in shop 'user_abc'.
+     * @principle Enforces shop ownership for customer management.
      */
     match /shops/{shopId}/customers/{customerId} {
       function isSignedIn() {
@@ -116,13 +107,13 @@ service cloud.firestore {
     }
 
     /**
-     * @description Rules for /shops/{shopId}/sales/{saleId}
-     * Allows the shop owner to read, create, update, and delete sales within their shop.
+     * @description Enforces sale ownership within a shop: only the shop owner can manage sales.
      * @path /shops/{shopId}/sales/{saleId}
-     * @allow (create) - Shop owner can create a sale.
-     * @allow (get, update, delete) - Shop owner can get, update, or delete a sale.
-     * @deny (create, get, update, delete) - Non-shop owner cannot create, get, update, or delete a sale.
-     * @principle Enforces ownership inheritance and document existence for writes.
+     * @allow (create) User with UID 'user_abc' can create a sale in shop 'user_abc'.
+     * @allow (get, list, update, delete) User with UID 'user_abc' can get, list, update, or delete sales in shop 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a sale in shop 'user_abc'.
+     * @deny (update, delete) User with UID 'user_xyz' cannot update or delete a sale in shop 'user_abc'.
+     * @principle Enforces shop ownership for sale management.
      */
     match /shops/{shopId}/sales/{saleId} {
       function isSignedIn() {
@@ -145,13 +136,13 @@ service cloud.firestore {
     }
 
     /**
-     * @description Rules for /shops/{shopId}/expenses/{expenseId}
-     * Allows the shop owner to read, create, update, and delete expenses within their shop.
+     * @description Enforces expense ownership within a shop: only the shop owner can manage expenses.
      * @path /shops/{shopId}/expenses/{expenseId}
-     * @allow (create) - Shop owner can create an expense.
-     * @allow (get, update, delete) - Shop owner can get, update, or delete an expense.
-     * @deny (create, get, update, delete) - Non-shop owner cannot create, get, update, or delete an expense.
-     * @principle Enforces ownership inheritance and document existence for writes.
+     * @allow (create) User with UID 'user_abc' can create an expense in shop 'user_abc'.
+     * @allow (get, list, update, delete) User with UID 'user_abc' can get, list, update, or delete expenses in shop 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create an expense in shop 'user_abc'.
+     * @deny (update, delete) User with UID 'user_xyz' cannot update or delete an expense in shop 'user_abc'.
+     * @principle Enforces shop ownership for expense management.
      */
     match /shops/{shopId}/expenses/{expenseId} {
       function isSignedIn() {
@@ -171,31 +162,6 @@ service cloud.firestore {
       allow create: if isOwner(shopId);
       allow update: if isExistingOwner(shopId);
       allow delete: if isExistingOwner(shopId);
-    }
-
-    /**
-     * @description Rules for /users/{userId}/appData/{docId}
-     * Allows each signed-in user to read/write their own app data.
-     */
-    match /users/{userId}/appData/{docId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      // ✅ Allow user to fully access only their own appData
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
     }
   }
 }

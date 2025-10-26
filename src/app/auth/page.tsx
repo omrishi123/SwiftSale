@@ -12,15 +12,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import {
-  useAuth,
-  useUser,
-} from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { initialData } from '@/lib/data';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
 
 export default function AuthPage() {
   const { toast } = useToast();
@@ -68,21 +68,51 @@ export default function AuthPage() {
         return;
       }
       try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
         if (userCredential && userCredential.user) {
-          const userId = userCredential.user.uid;
-          
-          // CRITICAL: Create the parent user document first.
-          const userDocRef = doc(firestore, 'users', userId);
-          await setDoc(userDocRef, { createdAt: new Date().toISOString() });
+          const shopId = userCredential.user.uid;
 
-          // Then, create the initial settings document in the subcollection.
-          const settingsDocRef = doc(firestore, `users/${userId}/appData/settings`);
-          await setDoc(settingsDocRef, initialData.settings);
+          // Create a new batch
+          const batch = writeBatch(firestore);
+
+          // 1. Create the main shop document
+          const shopDocRef = doc(firestore, 'shops', shopId);
+          batch.set(shopDocRef, { 
+            id: shopId,
+            name: initialData.settings.shopName,
+            address: initialData.settings.shopAddress,
+            phone: initialData.settings.shopPhone,
+            gstin: initialData.settings.shopGstin,
+            defaultTaxRate: initialData.settings.defaultTax,
+            createdAt: new Date().toISOString() 
+          });
+
+          // Add dummy documents to create the collections
+          const stockDocRef = doc(collection(firestore, 'shops', shopId, 'products'));
+          const customersDocRef = doc(collection(firestore, 'shops', shopId, 'customers'));
+          const salesDocRef = doc(collection(firestore, 'shops', shopId, 'sales'));
+          const expensesDocRef = doc(collection(firestore, 'shops', shopId, 'expenses'));
+
+          // Note: We don't need to actually set data for these if we just want the collections to appear
+          // but it's good practice to have at least one doc or have a placeholder system.
+          // For simplicity, we are just creating the collections by referencing a doc inside them.
+          // Firestore implicitly creates collections when you add the first document.
+          // To ensure they are created even if empty, we'll just commit the batch.
+          // Let's add the initial settings as a separate document as an example
+          const settingsDocRef = doc(firestore, `shops/${shopId}/settings/shopSettings`);
+           batch.set(settingsDocRef, initialData.settings);
+
+
+          // Commit the batch
+          await batch.commit();
 
           toast({
             title: 'Signup Successful',
-            description: 'Your account has been created. Please log in.',
+            description: 'Your account and shop have been created. Please log in.',
           });
           setIsLogin(true);
           setPassword('');

@@ -19,6 +19,7 @@ export default function AppLayout({
     }
   }, [user, isUserLoading, router]);
 
+  // Pass user to MainLayout to avoid MainLayout needing to call useUser itself
   if (isUserLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -27,5 +28,5 @@ export default function AppLayout({
     );
   }
 
-  return <MainLayout>{children}</MainLayout>;
+  return <MainLayout user={user}>{children}</MainLayout>;
 }
